@@ -1,0 +1,128 @@
+{
+  "summary": "Parse and evaluate single JSON-style atomic literals through the runtime iterator.",
+  "cases": [
+    {
+      "expr": "0",
+      "kind": "number",
+      "stdout": "0\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "1.25",
+      "kind": "number",
+      "stdout": "1.25\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "1e+2",
+      "kind": "number",
+      "stdout": "100.0\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "\"\"",
+      "kind": "string",
+      "stdout": "\"\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "\"line\\n\\\"quote\\\"\"",
+      "kind": "string",
+      "stdout": "\"line\\n\\\"quote\\\"\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "\"\\uD83D\\uDE00\"",
+      "kind": "string",
+      "stdout": "\"😀\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": " \ttrue\r\n",
+      "kind": "boolean",
+      "stdout": "true\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "false",
+      "kind": "boolean",
+      "stdout": "false\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "null",
+      "kind": "null",
+      "stdout": "null\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "'hello'",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "01",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: invalid atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "1e",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: unexpected token after expression\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "1e400",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: invalid atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "-Infinity",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "\"\\uD800\"",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: invalid atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "\"\\x\"",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: invalid atomic literal\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "true false",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: unexpected token after expression\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "nullx",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: invalid atomic literal\n",
+      "exit_code": 2
+    }
+  ]
+}

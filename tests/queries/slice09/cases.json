@@ -1,0 +1,105 @@
+{
+  "summary": "Parse object constructors with literal string keys and require singleton member values and unique names at runtime.",
+  "cases": [
+    {
+      "expr": "{}",
+      "stdout": "{}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{ \"b\": 1 + 2, \"a\": null }",
+      "stdout": "{\"a\":null,\"b\":3}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{\"outer\": {\"flag\": false}, \"\": ((), \"a,b\")}",
+      "stdout": "{\"\":\"a,b\",\"outer\":{\"flag\":false}}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{\"a\": {}}, {\"a\": 2}",
+      "stdout": "{\"a\":{}}\n{\"a\":2}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{\"\\u0061\": 1, \"A\": 2}",
+      "stdout": "{\"A\":2,\"a\":1}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{\"a\": ()}",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: object member 'a' must contain exactly one value\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "{\"a\": (1, 2)}",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: object member 'a' must contain exactly one value\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "{\"a\": 1, \"a\": 2}",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: duplicate object member name: 'a'\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "{\"a\": 1, \"\\u0061\": 2}",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: duplicate object member name: 'a'\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "{1: 2}",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "{(\"a\"): 2}",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "{\"a\" 1}",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected ':' after object member name\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "{\"a\": 1",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a closing brace\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "{\"a\": 1,}",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "{\"a\": 1, 2}",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    }
+  ]
+}

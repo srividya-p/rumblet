@@ -1,0 +1,15 @@
+{
+  "summary": "Select one conditional branch using the effective boolean value of the test per §15.",
+  "cases": [
+    {"expr": "if (true) then 1 else 1 div 0", "stdout": "1\n"},
+    {"expr": "if (false) then 1 div 0 else (2, 3)", "stdout": "2\n3\n"},
+    {"expr": "if (()) then 1 div 0 else ()", "stdout": "()\n"},
+    {"expr": "if ((), true) then (1, 2) else 3, 4", "stdout": "1\n2\n4\n"},
+    {"expr": "if (true) then if (false) then 1 else 2 else 3", "stdout": "2\n"},
+    {"expr": "[if (1 eq 1) then 2 else 3, {\"x\": if (false) then 4 else 5}]", "stdout": "[2,{\"x\":5}]\n"},
+    {"expr": "if (0) then 1 else 2", "stdout": "", "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n", "exit_code": 2},
+    {"expr": "if (true, false) then 1 else 2", "stdout": "", "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n", "exit_code": 2},
+    {"expr": "if (true) then 1 div 0 else 2", "stdout": "", "stderr": "[rumblet] DynamicError: division or remainder by zero\n", "exit_code": 2},
+    {"expr": "if (true) then 1", "stdout": "", "stderr": "[rumblet] StaticError: expected 'else' after then branch\n", "exit_code": 2}
+  ]
+}

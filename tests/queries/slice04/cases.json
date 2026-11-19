@@ -1,0 +1,29 @@
+{
+  "summary": "Added the open/next/close/reset runtime iterator lifecycle, a LiteralIterator yielding one value, and DynamicContext sequence bindings that open/reset can install or update.",
+  "cases": [
+    {
+      "expr": "1",
+      "literal": 1,
+      "printed_stdout": "1\n",
+      "cli_stdout": "1\n",
+      "cli_stderr": "",
+      "cli_exit_code": 0
+    },
+    {
+      "expr": "\"hello\"",
+      "literal": "hello",
+      "printed_stdout": "\"hello\"\n",
+      "cli_stdout": "\"hello\"\n",
+      "cli_stderr": "",
+      "cli_exit_code": 0
+    },
+    {
+      "expr": "null",
+      "literal": null,
+      "printed_stdout": "null\n",
+      "cli_stdout": "null\n",
+      "cli_stderr": "",
+      "cli_exit_code": 0
+    }
+  ]
+}

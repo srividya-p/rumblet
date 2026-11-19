@@ -1,0 +1,14 @@
+{
+  "summary": "Test the kind of a singleton query result with instance of per §13.",
+  "cases": [
+    {"expr": "\"x\" instance of string, 1 instance of number, false instance of boolean, null instance of null, {} instance of object, [] instance of array", "stdout": "true\ntrue\ntrue\ntrue\ntrue\ntrue\n"},
+    {"expr": "true instance of number, [] instance of object, null instance of boolean", "stdout": "false\nfalse\nfalse\n"},
+    {"expr": "1 + 2 instance of number and not(\"x\" instance of array)", "stdout": "true\n"},
+    {"expr": "(1 eq 1) instance of boolean, [((), [1]) instance of array]", "stdout": "true\n[true]\n"},
+    {"expr": "() instance of null", "stdout": "", "stderr": "[rumblet] DynamicError: instance of operand must contain exactly one value\n", "exit_code": 2},
+    {"expr": "(1, 2) instance of number", "stdout": "", "stderr": "[rumblet] DynamicError: instance of operand must contain exactly one value\n", "exit_code": 2},
+    {"expr": "1 instance of integer", "stdout": "", "stderr": "[rumblet] StaticError: expected a built-in type name after 'instance of'\n", "exit_code": 2},
+    {"expr": "1 instance number", "stdout": "", "stderr": "[rumblet] StaticError: expected 'of' after 'instance'\n", "exit_code": 2},
+    {"expr": "1 instance of number instance of boolean", "stdout": "", "stderr": "[rumblet] StaticError: unexpected token after expression\n", "exit_code": 2}
+  ]
+}

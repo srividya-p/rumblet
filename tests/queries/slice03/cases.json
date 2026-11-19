@@ -1,0 +1,26 @@
+{
+  "summary": "Added list-backed sequences separate from values, prohibited nested sequences, added one-JSON-value-per-line printing with () for empty sequences, and introduced StaticError and DynamicError with CLI handling.",
+  "cases": [
+    {
+      "expr": "()",
+      "printed_stdout": "()\n",
+      "cli_stdout": "()\n",
+      "cli_stderr": "",
+      "cli_exit_code": 0
+    },
+    {
+      "expr": "\"hello\", 1, true, null",
+      "printed_stdout": "\"hello\"\n1\ntrue\nnull\n",
+      "cli_stdout": "\"hello\"\n1\ntrue\nnull\n",
+      "cli_stderr": "",
+      "cli_exit_code": 0
+    },
+    {
+      "expr": "[1, null], {\"items\": [false]}",
+      "printed_stdout": "[1,null]\n{\"items\":[false]}\n",
+      "cli_stdout": "[1,null]\n{\"items\":[false]}\n",
+      "cli_stderr": "",
+      "cli_exit_code": 0
+    }
+  ]
+}

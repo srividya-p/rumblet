@@ -1,0 +1,23 @@
+{
+  "summary": "Initialized the Python package, CLI scaffold, project metadata, and tests.",
+  "cases": [
+    {
+      "expr": "1",
+      "stdout": "1\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "true",
+      "stdout": "true\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "()",
+      "stdout": "()\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  ]
+}

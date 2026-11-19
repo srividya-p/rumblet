@@ -1,0 +1,36 @@
+{
+  "summary": "Implemented arrays, objects with unique string names, nesting of all six value kinds, and content-based equality and hashing; array order matters and object member order does not.",
+  "cases": [
+    {
+      "expr": "[]",
+      "model_value": [],
+      "stdout": "[]\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{}",
+      "model_value": {},
+      "stdout": "{}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{\"items\": [\"hello\", 1, true, null, {\"nested\": []}]}",
+      "model_value": {
+        "items": [
+          "hello",
+          1,
+          true,
+          null,
+          {
+            "nested": []
+          }
+        ]
+      },
+      "stdout": "{\"items\":[\"hello\",1,true,null,{\"nested\":[]}]}\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+[project]
+name = "rumblet"
+version = "0.1.0"
+description = "A local, spec-driven toy query engine"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false

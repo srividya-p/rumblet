@@ -1,0 +1,29 @@
+{
+  "summary": "Implemented immutable atomic values: Unicode strings, finite JSON-compatible numbers, booleans, and null, with kind-and-content equality.",
+  "cases": [
+    {
+      "expr": "\"hello\"",
+      "stdout": "\"hello\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "1",
+      "stdout": "1\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "true",
+      "stdout": "true\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "null",
+      "stdout": "null\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  ]
+}

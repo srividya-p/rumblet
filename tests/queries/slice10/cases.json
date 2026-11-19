@@ -1,0 +1,77 @@
+{
+  "summary": "Evaluate ordered array constructors with singleton elements and nested arrays and objects.",
+  "cases": [
+    {
+      "expr": "[]",
+      "stdout": "[]\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "[3, 1 + 1, 3, ((), null), false]",
+      "stdout": "[3,2,3,null,false]\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "[{\"items\": [1, {\"ok\": true}]}, [], {}]",
+      "stdout": "[{\"items\":[1,{\"ok\":true}]},[],{}]\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "{\"items\": [[], {\"inner\": [null]}]}",
+      "stdout": "{\"items\":[[],{\"inner\":[null]}]}\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "[[1, 2], [3]], []",
+      "stdout": "[[1,2],[3]]\n[]\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "[()]",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: array element 1 must contain exactly one value\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "[1, (2, 3)]",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: array element 2 must contain exactly one value\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "{\"items\": [[()]]}",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: array element 1 must contain exactly one value\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    },
+    {
+      "expr": "[1,]",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "[,1]",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "[1",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a closing bracket\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    }
+  ]
+}

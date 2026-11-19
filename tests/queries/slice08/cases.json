@@ -1,0 +1,70 @@
+{
+  "summary": "Concatenate operand sequences in order with comma expressions, preserving duplicates and skipping empty sequences.",
+  "cases": [
+    {
+      "expr": "1, 2, 3",
+      "stdout": "1\n2\n3\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(1, (2, (), 2)), (), null",
+      "stdout": "1\n2\n2\nnull\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(), ((), ())",
+      "stdout": "()\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "1 + 2, 3 * 4",
+      "stdout": "3\n12\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "\"a,b\", false",
+      "stdout": "\"a,b\"\nfalse\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": ",1",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "1,",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "1,,2",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "(1,)",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n",
+      "exit_code": 2,
+      "error_type": "StaticError"
+    },
+    {
+      "expr": "(1, 2) + 3",
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: arithmetic operands must contain exactly one number\n",
+      "exit_code": 2,
+      "error_type": "DynamicError"
+    }
+  ]
+}

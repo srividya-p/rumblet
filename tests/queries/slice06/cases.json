@@ -1,0 +1,83 @@
+{
+  "summary": "Support nested parenthesized expressions and evaluate empty parentheses as an empty sequence.",
+  "cases": [
+    {
+      "expr": "()",
+      "stdout": "()\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": " ( ( \t ) ) ",
+      "stdout": "()\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(42)",
+      "stdout": "42\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "((null))",
+      "stdout": "null\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "( false )",
+      "stdout": "false\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(\"(\")",
+      "stdout": "\"(\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(\")\")",
+      "stdout": "\")\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(\"()\")",
+      "stdout": "\"()\"\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "(",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a closing parenthesis\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "((1)",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a closing parenthesis\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "(1))",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: unexpected token after expression\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "(1) (2)",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: unexpected token after expression\n",
+      "exit_code": 2
+    },
+    {
+      "expr": "(1, 2)",
+      "stdout": "1\n2\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  ]
+}
