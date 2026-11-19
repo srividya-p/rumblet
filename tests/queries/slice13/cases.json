@@ -1,18 +1,14 @@
 {
-  "summary": "Compare singleton atomic values with eq, ne, lt, le, gt, and ge.",
+  "summary": "Test the kind of a singleton query result with instance of per §13.",
   "cases": [
-    {"expr": "1 eq 1.0, true eq true, null eq null, \"a\" eq \"a\"", "stdout": "true\ntrue\ntrue\ntrue\n"},
-    {"expr": "true eq 1, null ne false, \"1\" ne 1, 2 ne 2", "stdout": "false\ntrue\ntrue\nfalse\n"},
-    {"expr": "1 lt 2, 2 le 2, 2 gt 1, 1 ge 2", "stdout": "true\ntrue\ntrue\nfalse\n"},
-    {"expr": "\"a\" lt \"aa\", \"é\" gt \"z\", \"x\" ge \"x\", \"b\" le \"a\"", "stdout": "true\ntrue\ntrue\nfalse\n"},
-    {"expr": "1 + 2 eq 3 and 4 gt 2, [{\"test\": not(1 ne 1)}]", "stdout": "true\n[{\"test\":true}]\n"},
-    {"expr": "() eq 1", "stdout": "", "stderr": "[rumblet] DynamicError: comparison operands must contain exactly one atomic value\n", "exit_code": 2},
-    {"expr": "1 ne (1, 2)", "stdout": "", "stderr": "[rumblet] DynamicError: comparison operands must contain exactly one atomic value\n", "exit_code": 2},
-    {"expr": "[] eq []", "stdout": "", "stderr": "[rumblet] DynamicError: comparison operands must contain exactly one atomic value\n", "exit_code": 2},
-    {"expr": "null eq {}", "stdout": "", "stderr": "[rumblet] DynamicError: comparison operands must contain exactly one atomic value\n", "exit_code": 2},
-    {"expr": "1 lt \"2\"", "stdout": "", "stderr": "[rumblet] DynamicError: ordering comparisons require two numbers or two strings\n", "exit_code": 2},
-    {"expr": "false le true", "stdout": "", "stderr": "[rumblet] DynamicError: ordering comparisons require two numbers or two strings\n", "exit_code": 2},
-    {"expr": "null ge null", "stdout": "", "stderr": "[rumblet] DynamicError: ordering comparisons require two numbers or two strings\n", "exit_code": 2},
-    {"expr": "1 lt 2 lt 3", "stdout": "", "stderr": "[rumblet] StaticError: unexpected token after expression\n", "exit_code": 2}
+    {"expr": "\"x\" instance of string, 1 instance of number, false instance of boolean, null instance of null, {} instance of object, [] instance of array", "stdout": "true\ntrue\ntrue\ntrue\ntrue\ntrue\n"},
+    {"expr": "true instance of number, [] instance of object, null instance of boolean", "stdout": "false\nfalse\nfalse\n"},
+    {"expr": "1 + 2 instance of number and not(\"x\" instance of array)", "stdout": "true\n"},
+    {"expr": "(1 eq 1) instance of boolean, [((), [1]) instance of array]", "stdout": "true\n[true]\n"},
+    {"expr": "() instance of null", "stdout": "", "stderr": "[rumblet] DynamicError: instance of operand must contain exactly one value\n", "exit_code": 2},
+    {"expr": "(1, 2) instance of number", "stdout": "", "stderr": "[rumblet] DynamicError: instance of operand must contain exactly one value\n", "exit_code": 2},
+    {"expr": "1 instance of integer", "stdout": "", "stderr": "[rumblet] StaticError: expected a built-in type name after 'instance of'\n", "exit_code": 2},
+    {"expr": "1 instance number", "stdout": "", "stderr": "[rumblet] StaticError: expected 'of' after 'instance'\n", "exit_code": 2},
+    {"expr": "1 instance of number instance of boolean", "stdout": "", "stderr": "[rumblet] StaticError: unexpected token after expression\n", "exit_code": 2}
   ]
 }

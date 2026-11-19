@@ -1,4 +1,4 @@
-"""Value comparison query cases and iterator lifecycle."""
+"""Instance test query cases and iterator lifecycle."""
 
 import io
 import json
@@ -7,13 +7,13 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from rumblet.__main__ import main
-from rumblet.runtime import ComparisonIterator, LiteralIterator
-from rumblet.values import BooleanValue, NumberValue
+from rumblet.runtime import InstanceOfIterator, LiteralIterator
+from rumblet.values import NULL, BooleanValue
 
 CASES = json.loads((Path(__file__).parent / "queries/slice13/cases.json").read_text())["cases"]
 
 
-class ValueComparisonTests(unittest.TestCase):
+class InstanceOfTests(unittest.TestCase):
     def test_query_cases(self):
         for case in CASES:
             with self.subTest(expression=case["expr"]):
@@ -26,15 +26,13 @@ class ValueComparisonTests(unittest.TestCase):
                 )
 
     def test_iterator_emits_one_boolean_per_open_or_reset(self):
-        left = LiteralIterator(NumberValue(1))
-        right = LiteralIterator(NumberValue(2))
-        iterator = ComparisonIterator("lt", left, right)
+        iterator = InstanceOfIterator(LiteralIterator(NULL), "number")
         iterator.open()
         try:
-            self.assertEqual(iterator.next(), BooleanValue(True))
+            self.assertEqual(iterator.next(), BooleanValue(False))
             with self.assertRaises(StopIteration):
                 iterator.next()
             iterator.reset()
-            self.assertEqual(iterator.next(), BooleanValue(True))
+            self.assertEqual(iterator.next(), BooleanValue(False))
         finally:
             iterator.close()

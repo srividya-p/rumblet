@@ -1,4 +1,4 @@
-"""Effective boolean values of evaluated query sequences."""
+"""Value comparison query cases and iterator lifecycle."""
 
 import io
 import json
@@ -7,31 +7,15 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 from rumblet.__main__ import main
-from rumblet.engine import evaluate
-from rumblet.errors import DynamicError
-from rumblet.runtime import effective_boolean_value
+from rumblet.runtime import ComparisonIterator, LiteralIterator
+from rumblet.values import BooleanValue, NumberValue
 
 CASES = json.loads((Path(__file__).parent / "queries/slice12/cases.json").read_text())["cases"]
 
 
-class EffectiveBooleanValueTests(unittest.TestCase):
+class ValueComparisonTests(unittest.TestCase):
     def test_query_cases(self):
         for case in CASES:
-            if "stdout" in case:
-                continue
-            with self.subTest(expression=case["expr"]):
-                sequence = evaluate(case["expr"])
-                if "error" in case:
-                    with self.assertRaises(DynamicError) as raised:
-                        effective_boolean_value(sequence)
-                    self.assertEqual(type(raised.exception).__name__, case["error"])
-                else:
-                    self.assertIs(effective_boolean_value(sequence), case["result"])
-
-    def test_logical_query_cases(self):
-        for case in CASES:
-            if "stdout" not in case:
-                continue
             with self.subTest(expression=case["expr"]):
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with redirect_stdout(stdout), redirect_stderr(stderr):
@@ -40,3 +24,17 @@ class EffectiveBooleanValueTests(unittest.TestCase):
                     (exit_code, stdout.getvalue(), stderr.getvalue()),
                     (case.get("exit_code", 0), case["stdout"], case.get("stderr", "")),
                 )
+
+    def test_iterator_emits_one_boolean_per_open_or_reset(self):
+        left = LiteralIterator(NumberValue(1))
+        right = LiteralIterator(NumberValue(2))
+        iterator = ComparisonIterator("lt", left, right)
+        iterator.open()
+        try:
+            self.assertEqual(iterator.next(), BooleanValue(True))
+            with self.assertRaises(StopIteration):
+                iterator.next()
+            iterator.reset()
+            self.assertEqual(iterator.next(), BooleanValue(True))
+        finally:
+            iterator.close()
