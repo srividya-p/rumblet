@@ -32,6 +32,13 @@ class LetExpr:
 
 
 @dataclass(frozen=True, slots=True)
+class ForExpr:
+    name: str
+    source: Expr
+    return_expr: Expr
+
+
+@dataclass(frozen=True, slots=True)
 class ArithmeticExpr:
     operator: str
     operands: tuple[Expr, ...]
@@ -87,7 +94,7 @@ class ArrayExpr:
 Expr = (
     LiteralExpr | EmptySequenceExpr | ArithmeticExpr | ArithmeticChainExpr | LogicalExpr
     | ComparisonExpr | InstanceOfExpr | IfExpr | CommaExpr | ObjectExpr | ArrayExpr
-    | VariableRefExpr | LetExpr
+    | VariableRefExpr | LetExpr | ForExpr
 )
 
 type _ParseFrame = Generator[_ParseFrame, Expr | None, Expr]
@@ -148,19 +155,37 @@ class _Parser:
         return CommaExpr(tuple(operands))
 
     def expr_single(self) -> _ParseFrame:
+        if self.current == "for":
+            return (yield from self.for_expr())
         if self.current == "let":
             return (yield from self.let_expr())
         if self.current == "if":
             return (yield from self.conditional())
         return (yield from self.or_expr())
 
+    def for_expr(self) -> _ParseFrame:
+        self.advance()
+        name = self.variable_name("for")
+        if self.current != "in":
+            raise StaticError("expected 'in' after for variable")
+        self.advance()
+        source = yield self.expr_single()
+        if self.current != "return":
+            raise StaticError("expected 'return' after for clause")
+        self.advance()
+        return_expr = yield self.expr_single()
+        return ForExpr(name, source, return_expr)
+
+    def variable_name(self, clause: str) -> str:
+        if not self.current.startswith("$") or self.current == "$":
+            raise StaticError(f"expected a variable name after '{clause}'")
+        return self.advance()[1:]
+
     def let_expr(self) -> _ParseFrame:
         bindings = []
         while self.current == "let":
             self.advance()
-            if not self.current.startswith("$") or self.current == "$":
-                raise StaticError("expected a variable name after 'let'")
-            name = self.advance()[1:]
+            name = self.variable_name("let")
             if self.current != ":=":
                 raise StaticError("expected ':=' after let variable")
             self.advance()

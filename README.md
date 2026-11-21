@@ -29,8 +29,8 @@ null
 ```
 
 The CLI accepts inline expressions through `run --expr`, including variable
-references and `let` clauses. File input, `for` and `where` clauses, and
-function calls are pending.
+references, `let` clauses, and single-clause `for` expressions. File input,
+mixed `for`/`let` clause chains, `where` clauses, and function calls are pending.
 
 ## Slices 00–04: foundations
 
@@ -311,4 +311,29 @@ $ python -m rumblet run --expr 'let $x := 2 let $y := ($x, $x + 1) return $y'
 
 $ python -m rumblet run --expr 'let $x := () return 7'
 7
+```
+
+## Slice 16: for expressions
+
+Per §12, `for $name in ExprSingle return ExprSingle` pulls one value at a time
+from the input sequence and binds it as a singleton sequence. The return
+iterator resets for every binding, and its results are concatenated in input
+order. An empty input yields an empty sequence without evaluating the return
+expression. The loop variable is in scope in the return expression. The input
+expression uses the surrounding scope.
+
+```bash
+$ python -m rumblet run --expr 'for $x in (1,2,3) return $x + 10'
+11
+12
+13
+
+$ python -m rumblet run --expr 'for $x in (1,2) return ($x,$x)'
+1
+1
+2
+2
+
+$ python -m rumblet run --expr 'for $x in () return 1 div 0'
+()
 ```

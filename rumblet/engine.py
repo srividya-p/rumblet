@@ -11,6 +11,7 @@ from rumblet.parser import (
     ComparisonExpr,
     EmptySequenceExpr,
     Expr,
+    ForExpr,
     IfExpr,
     InstanceOfExpr,
     LetExpr,
@@ -26,6 +27,7 @@ from rumblet.runtime import (
     CommaIterator,
     ComparisonIterator,
     EmptySequenceIterator,
+    ForIterator,
     IfIterator,
     InstanceOfIterator,
     LetIterator,
@@ -76,6 +78,10 @@ def _iterator_frame(node: Expr, bound_names: frozenset[str]) -> _BuildFrame[Runt
         if node.name not in bound_names:
             raise StaticError(f"unbound variable: ${node.name}")
         return VariableIterator(node.name)
+    if isinstance(node, ForExpr):
+        source = yield node.source
+        return_iterator = yield (node.return_expr, bound_names | {node.name})
+        return ForIterator(node.name, source, return_iterator)
     if isinstance(node, LetExpr):
         bindings = []
         for name, binding in node.bindings:

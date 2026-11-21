@@ -77,20 +77,22 @@ class RuntimeIterator(ABC):
             raise
 
     def close(self) -> None:
-        """Close the active chain and release its contexts even on failure."""
+        """Close the active iterators and release their contexts even on failure."""
         active = []
         first_error: BaseException | None = None
-        iterator = self
+        pending = [self]
         try:
-            while iterator is not None and iterator._context is not None:
+            while pending:
+                iterator = pending.pop()
+                if iterator._context is None:
+                    continue
                 active.append(iterator)
-                child = iterator._detach_child()
+                pending.extend(reversed(iterator._detach_children()))
                 try:
                     iterator._close()
                 except BaseException as error:  # noqa: BLE001
                     if first_error is None:
                         first_error = error
-                iterator = child
         finally:
             for iterator in reversed(active):
                 iterator._context = None
@@ -106,6 +108,10 @@ class RuntimeIterator(ABC):
     def _detach_child(self) -> "RuntimeIterator | None":
         """Release ownership of the child held open between pulls."""
         return None
+
+    def _detach_children(self) -> "tuple[RuntimeIterator, ...]":
+        child = self._detach_child()
+        return () if child is None else (child,)
 
     @abstractmethod
     def _next(self) -> Value:
@@ -292,6 +298,60 @@ class LetIterator(_CompositeIterator):
             self._return.open(scope)
             self._active_return = self._return
         return (yield self._active_return)
+
+
+class ForIterator(_CompositeIterator):
+    """Stream the source and concatenate the return sequence for each item."""
+
+    def __init__(self, name: str, source: RuntimeIterator,
+                 return_iterator: RuntimeIterator) -> None:
+        super().__init__()
+        self._name = name
+        self._source = source
+        self._return = return_iterator
+        self._source_open = False
+        self._return_open = False
+        self._has_binding = False
+
+    def _detach_children(self) -> tuple[RuntimeIterator, ...]:
+        children = []
+        if self._return_open:
+            children.append(self._return)
+        if self._source_open:
+            children.append(self._source)
+        self._return_open = self._source_open = self._has_binding = False
+        return tuple(children)
+
+    def _restart(self) -> None:
+        children = self._detach_children()
+        if children:
+            try:
+                children[0].close()
+            finally:
+                for child in children[1:]:
+                    child.close()
+
+    def _pull(self) -> _Pull[Value | None]:
+        if not self._source_open:
+            self._source_open = True
+            self._source.open(self.context)
+        while True:
+            if self._has_binding:
+                result = yield self._return
+                if result is not None:
+                    return result
+            item = yield self._source
+            if item is None:
+                return None
+            if not self._return_open:
+                scope = self.context.copy()
+                scope.bind(self._name, Sequence([item]))
+                self._return_open = True
+                self._return.open(scope)
+                self._return.reset()
+            else:
+                self._return.reset(bindings={self._name: Sequence([item])})
+            self._has_binding = True
 
 
 def _read_effective_boolean(operand: RuntimeIterator, context: DynamicContext) -> _Pull[bool]:
