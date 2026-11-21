@@ -369,6 +369,11 @@ clauses. Each `let` binds its full sequence once per incoming tuple. Later
 clauses can reference earlier bindings. The `where` clause filters complete
 tuples, and the return sequences are concatenated in iteration order.
 
+A FLWOR expression can appear directly as a `for` input, a `let` initializer,
+or a `return` expression. Nested expressions can read variables in the
+surrounding scope and can shadow them locally. Resetting a partially consumed
+plan restarts nested iteration while preserving caller-owned bindings.
+
 ```bash
 $ python -m rumblet run --expr 'for $team in ("a","b") for $score in (1,2,3) where $score gt 1 and ($team eq "a" or $score eq 3) return {"team":$team,"scores":[$score,$score * 10]}'
 {"scores":[2,20],"team":"a"}
@@ -383,4 +388,22 @@ $ python -m rumblet run --expr 'for $x in (1,2) let $original := $x let $tags :=
 {"tag":"low","values":[1,10]}
 {"tag":"first","values":[1,10]}
 {"tag":"high","values":[2,20]}
+```
+
+These examples nest a FLWOR in `return`, a `let` initializer, and a `for` input.
+
+```bash
+$ python -m rumblet run --expr 'for $base in (2,4) return for $n in (1,2,3) where $n lt $base return {"base":$base,"pair":[$n,$base * $n]}'
+{"base":2,"pair":[1,2]}
+{"base":4,"pair":[1,4]}
+{"base":4,"pair":[2,8]}
+{"base":4,"pair":[3,12]}
+
+$ python -m rumblet run --expr 'for $base in (2,4) let $rows := for $n in (1,3) where $n lt $base return [ $base, $n ] where $base gt 2 return $rows'
+[4,1]
+[4,3]
+
+$ python -m rumblet run --expr 'let $x := 5 for $row in for $x in ($x,$x + 1) return [$x,$x * 2] return {"outer":$x,"row":$row}'
+{"outer":5,"row":[5,10]}
+{"outer":5,"row":[6,12]}
 ```

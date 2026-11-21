@@ -1,5 +1,5 @@
 {
-  "summary": "Evaluate full FLWOR clause chains with nested for iteration, successive let bindings, and an optional where filter on complete tuples.",
+  "summary": "Evaluate full FLWOR clause chains with nested for iteration, successive let bindings, and an optional where filter on complete tuples. Cover nested FLWOR in return and binding expressions, including scope isolation and reset.",
   "cases": [
     {
       "expr": "for $team in (\"a\",\"b\") for $score in (1,2,3) where $score gt 1 and ($team eq \"a\" or $score eq 3) return {\"team\":$team,\"scores\":[$score,$score * 10]}",
@@ -18,6 +18,35 @@
     {"expr": "for $x in (1,2) let $y := $x + 1 where $y eq 3 return ($x,$y)", "stdout": "2\n3\n"},
     {"expr": "for $x in 1 let $y := 1 div 0 where false return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] DynamicError: division or remainder by zero\n"},
     {"expr": "let $x := $y for $y in 1 return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $y\n"},
-    {"expr": "for $x in 1 where true let $y := 2 return $y", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected 'return' after for clause\n"}
+    {"expr": "for $x in 1 where true let $y := 2 return $y", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected 'return' after for clause\n"},
+    {
+      "name": "nested_return",
+      "expr": "for $base in (2,4) return for $n in (1,2,3) where $n lt $base return {\"base\":$base,\"pair\":[$n,$base * $n]}",
+      "stdout": "{\"base\":2,\"pair\":[1,2]}\n{\"base\":4,\"pair\":[1,4]}\n{\"base\":4,\"pair\":[2,8]}\n{\"base\":4,\"pair\":[3,12]}\n"
+    },
+    {
+      "expr": "for $base in (2,4) let $rows := for $n in (1,3) where $n lt $base return [ $base, $n ] where $base gt 2 return $rows",
+      "stdout": "[4,1]\n[4,3]\n"
+    },
+    {
+      "expr": "let $x := 5 for $row in for $x in ($x,$x + 1) return [$x,$x * 2] return {\"outer\":$x,\"row\":$row}",
+      "stdout": "{\"outer\":5,\"row\":[5,10]}\n{\"outer\":5,\"row\":[6,12]}\n"
+    },
+    {
+      "expr": "for $x in (1,2) return ((for $x in ($x + 10,$x + 20) return $x), $x)",
+      "stdout": "11\n21\n1\n12\n22\n2\n"
+    },
+    {
+      "expr": "let $rows := for $inner in 1 return $inner return $inner",
+      "stdout": "",
+      "exit_code": 2,
+      "stderr": "[rumblet] StaticError: unbound variable: $inner\n"
+    },
+    {
+      "expr": "for $outer in () return for $inner in $missing return $outer",
+      "stdout": "",
+      "exit_code": 2,
+      "stderr": "[rumblet] StaticError: unbound variable: $missing\n"
+    }
   ]
 }
