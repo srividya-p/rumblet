@@ -11,7 +11,7 @@ or newer and has no package dependencies. Run these commands from the repo root.
 ```bash
 $ python -m unittest discover -s tests -q
 ----------------------------------------------------------------------
-Ran 54 tests in 2.456s
+Ran 70 tests in 3.454s
 
 OK
 ```
@@ -31,7 +31,7 @@ null
 The CLI accepts inline expressions through `run --expr`, including FLWOR
 expressions with mixed `for` and `let` clauses and an optional `where`.
 The CLI also supports the built-in sequence functions `count`, `head`,
-`tail`, `exists`, and `empty`. File input is pending.
+`tail`, `exists`, and `empty`, plus `json-file` for loading JSON data.
 
 ## Slices 00–04: foundations
 
@@ -451,4 +451,55 @@ true
 
 $ python -m rumblet run --expr 'count(1, 2)'
 [rumblet] StaticError: count expects exactly one argument
+```
+
+## Slice 20: load JSON data from a file
+
+`json-file(path)` takes one argument that must evaluate to a singleton string.
+Relative paths resolve from the process's working directory. The file must
+contain one UTF-8 JSON value, which the function returns as a singleton
+sequence. A top-level JSON array stays one array item.
+
+An unreadable file, invalid JSON, or a value outside the data model raises
+`DynamicError`. This includes duplicate object keys and non-finite numbers.
+Wrong arity raises `StaticError`.
+
+```bash
+$ printf '%s\n' '[1,2]' > /tmp/rumblet-slice20.json
+$ python -m rumblet run --expr 'json-file("/tmp/rumblet-slice20.json")'
+[1,2]
+
+$ python -m rumblet run --expr 'count(json-file("/tmp/rumblet-slice20.json"))'
+1
+
+$ python -m rumblet run --expr 'json-file(())'
+[rumblet] DynamicError: json-file expects a singleton string path
+```
+
+This example loads a project record with nested objects, an array of members,
+an empty array, booleans, and a null. The query attaches the source filename
+to the loaded record and returns it if the file contains an object.
+
+```bash
+$ data_dir=$(mktemp -d)
+$ cat > "$data_dir/project.json" <<'JSON'
+{
+  "project": "Atlas",
+  "active": true,
+  "members": [
+    {"name": "Ada", "roles": ["lead", "reviewer"]},
+    {"name": "Lin", "roles": []}
+  ],
+  "metrics": {"completion": 0.75, "issues": 3},
+  "archivedAt": null
+}
+JSON
+$ rumblet_root="$PWD"
+$ (cd "$data_dir" && PYTHONPATH="$rumblet_root" "$rumblet_root/.venv/bin/python" -m rumblet run --expr '
+    for $path in "project.json"
+    let $record := json-file($path)
+    where $record instance of object
+    return {"source": $path, "record": $record}
+  ')
+{"record":{"active":true,"archivedAt":null,"members":[{"name":"Ada","roles":["lead","reviewer"]},{"name":"Lin","roles":[]}],"metrics":{"completion":0.75,"issues":3},"project":"Atlas"},"source":"project.json"}
 ```

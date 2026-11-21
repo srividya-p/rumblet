@@ -1,0 +1,75 @@
+{
+  "summary": "Read one UTF-8 JSON value from a path with json-file and return it as a singleton sequence of model values.",
+  "cases": [
+    {
+      "expr": "let $path := \"data.json\" return json-file ($path)",
+      "files": {"data.json": "{\"z\":[true,false,null,3.5,\"é\",{\"n\":2}],\"a\":{}}"},
+      "stdout": "{\"a\":{},\"z\":[true,false,null,3.5,\"é\",{\"n\":2}]}\n"
+    },
+    {
+      "expr": "count(json-file(\"array.json\")), json-file(\"array.json\")",
+      "files": {"array.json": "[1,2]"},
+      "stdout": "1\n[1,2]\n"
+    },
+    {
+      "expr": "json-file(\"scalar.json\")",
+      "files": {"scalar.json": " null\n"},
+      "stdout": "null\n"
+    },
+    {
+      "expr": "json-file(\"absent.json\")",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file could not read the file\n"
+    },
+    {
+      "expr": "json-file(\"bad.json\")",
+      "files": {"bad.json": "1 2"},
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file requires one UTF-8 JSON value valid in the data model\n"
+    },
+    {
+      "expr": "json-file(\"duplicate.json\")",
+      "files": {"duplicate.json": "[{\"a\":1,\"\\u0061\":2}]"},
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file requires one UTF-8 JSON value valid in the data model\n"
+    },
+    {
+      "expr": "json-file(\"numbers.json\")",
+      "files": {"numbers.json": "[1e999,NaN]"},
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file requires one UTF-8 JSON value valid in the data model\n"
+    },
+    {
+      "expr": "json-file(())",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file expects a singleton string path\n"
+    },
+    {
+      "expr": "json-file((\"a\", \"b\"))",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file expects a singleton string path\n"
+    },
+    {
+      "expr": "json-file(42)",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] DynamicError: json-file expects a singleton string path\n"
+    },
+    {
+      "expr": "json-file()",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: json-file expects exactly one argument\n"
+    },
+    {
+      "expr": "if (false) then json-file(\"absent.json\") else 4-2",
+      "stdout": "2\n"
+    }
+  ]
+}

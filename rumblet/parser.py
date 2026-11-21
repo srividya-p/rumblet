@@ -112,7 +112,7 @@ _IDENTIFIER = r'[a-zA-Z_][a-zA-Z_0-9]*'
 _TOKEN = re.compile(
     r'[ \t\r\n]+|"(?:[^"\\]|\\[\s\S])*"|'
     r'[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|'
-    rf':=|\$?{_IDENTIFIER}|[\s\S]'
+    rf':=|json-file(?=[ \t\r\n]*\()|\$?{_IDENTIFIER}|[\s\S]'
 )
 
 
@@ -330,7 +330,7 @@ class _Parser:
             self.advance()
             return node
         token = self.advance()
-        if self.current == "(" and re.fullmatch(_IDENTIFIER, token):
+        if self.current == "(" and (token == "json-file" or re.fullmatch(_IDENTIFIER, token)):
             return (yield from self.function_call(token))
         return _parse_literal(token)
 
