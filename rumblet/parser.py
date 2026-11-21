@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from dataclasses import dataclass
 
 from rumblet.errors import StaticError
@@ -78,6 +78,8 @@ Expr = (
     | ComparisonExpr | InstanceOfExpr | IfExpr | CommaExpr | ObjectExpr | ArrayExpr
 )
 
+type _ParseFrame = Generator[_ParseFrame, Expr | None, Expr]
+
 _TOKEN = re.compile(
     r'[ \t\r\n]+|"(?:[^"\\]|\\[\s\S])*"|'
     r'[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|'
@@ -89,16 +91,31 @@ def parse(expression: str) -> Expr:
     tokens = (part.group() for part in _TOKEN.finditer(expression)
               if part.group()[0] not in " \t\r\n")
     parser = _Parser(tokens)
-    try:
-        node = parser.comma()
-    except RecursionError as error:
-        raise StaticError("expression nesting is too deep") from error
+    node = _run_frames(parser.comma())
     if parser.current:
         raise StaticError("unexpected token after expression")
     return node
 
 
+def _run_frames(root: _ParseFrame) -> Expr:
+    """Resume grammar rules on a heap-backed stack at nesting boundaries."""
+    frames = [root]
+    result = None
+    while frames:
+        try:
+            child = frames[-1].send(result)
+        except StopIteration as completed:
+            frames.pop()
+            result = completed.value
+        else:
+            frames.append(child)
+            result = None
+    return result
+
+
 class _Parser:
+    # Delegate within one precedence ladder. Yield a separate frame when
+    # entering a nested Expr or ExprSingle so nesting does not grow that ladder.
     def __init__(self, tokens: Iterator[str]) -> None:
         self.tokens = tokens
         self.current = next(tokens, "")
@@ -108,71 +125,75 @@ class _Parser:
         self.current = next(self.tokens, "")
         return token
 
-    def comma(self) -> Expr:
-        first = self.expr_single()
+    def comma(self) -> _ParseFrame:
+        first = yield from self.expr_single()
         if self.current != ",":
             return first
         operands = [first]
         while self.current == ",":
             self.advance()
-            operands.append(self.expr_single())
+            operands.append((yield from self.expr_single()))
         return CommaExpr(tuple(operands))
 
-    def expr_single(self) -> Expr:
+    def expr_single(self) -> _ParseFrame:
         if self.current == "if":
-            return self.conditional()
-        return self.or_expr()
+            return (yield from self.conditional())
+        return (yield from self.or_expr())
 
-    def conditional(self) -> IfExpr:
+    def conditional(self) -> _ParseFrame:
         self.advance()
         if self.current != "(":
             raise StaticError("expected '(' after 'if'")
         self.advance()
-        test = self.comma()
+        test = yield self.comma()
         if self.current != ")":
             raise StaticError("expected ')' after if test")
         self.advance()
         if self.current != "then":
             raise StaticError("expected 'then' after if test")
         self.advance()
-        then_branch = self.expr_single()
+        then_branch = yield self.expr_single()
         if self.current != "else":
             raise StaticError("expected 'else' after then branch")
         self.advance()
-        return IfExpr(test, then_branch, self.expr_single())
+        else_branch = yield self.expr_single()
+        return IfExpr(test, then_branch, else_branch)
 
-    def or_expr(self) -> Expr:
-        node = self.and_expr()
+    def or_expr(self) -> _ParseFrame:
+        node = yield from self.and_expr()
         while self.current == "or":
             self.advance()
-            node = LogicalExpr("or", (node, self.and_expr()))
+            right = yield from self.and_expr()
+            node = LogicalExpr("or", (node, right))
         return node
 
-    def and_expr(self) -> Expr:
-        node = self.not_expr()
+    def and_expr(self) -> _ParseFrame:
+        node = yield from self.not_expr()
         while self.current == "and":
             self.advance()
-            node = LogicalExpr("and", (node, self.not_expr()))
+            right = yield from self.not_expr()
+            node = LogicalExpr("and", (node, right))
         return node
 
-    def not_expr(self) -> Expr:
+    def not_expr(self) -> _ParseFrame:
         if self.current != "not":
-            return self.comparison()
+            return (yield from self.comparison())
         self.advance()
         if self.current != "(":
             raise StaticError("expected '(' after not")
         self.advance()
-        operand = self.comma()
+        operand = yield self.comma()
         if self.current != ")":
             raise StaticError("expected ')' after not operand")
         self.advance()
         return LogicalExpr("not", (operand,))
 
-    def comparison(self) -> Expr:
-        left = self.additive()
+    def comparison(self) -> _ParseFrame:
+        left = yield from self.additive()
         if self.current in ("eq", "ne", "lt", "le", "gt", "ge"):
             operator = self.advance()
-            return ComparisonExpr(operator, left, self.additive())
+            right = yield from self.additive()
+            return ComparisonExpr(operator, left, right)
         if self.current == "instance":
             self.advance()
             if self.current != "of":
@@ -183,36 +204,38 @@ class _Parser:
             return InstanceOfExpr(left, self.advance())
         return left
 
-    def additive(self) -> Expr:
-        first = self.multiplicative()
+    def additive(self) -> _ParseFrame:
+        first = yield from self.multiplicative()
         steps = []
         while self.current in ("+", "-"):
             operator = self.advance()
-            steps.append((operator, self.multiplicative()))
+            operand = yield from self.multiplicative()
+            steps.append((operator, operand))
         return ArithmeticChainExpr(first, tuple(steps)) if steps else first
 
-    def multiplicative(self) -> Expr:
-        first = self.unary()
+    def multiplicative(self) -> _ParseFrame:
+        first = yield from self.unary()
         steps = []
         while self.current in ("*", "div", "mod"):
             operator = self.advance()
-            steps.append((operator, self.unary()))
+            operand = yield from self.unary()
+            steps.append((operator, operand))
         return ArithmeticChainExpr(first, tuple(steps)) if steps else first
 
-    def unary(self) -> Expr:
+    def unary(self) -> _ParseFrame:
         operators = []
         while self.current in ("+", "-"):
             operators.append(self.advance())
-        node = self.primary()
+        node = yield from self.primary()
         for operator in reversed(operators):
             node = ArithmeticExpr(operator, (node,))
         return node
 
-    def primary(self) -> Expr:
+    def primary(self) -> _ParseFrame:
         if self.current == "{":
-            return self.object_constructor()
+            return (yield from self.object_constructor())
         if self.current == "[":
-            return self.array_constructor()
+            return (yield from self.array_constructor())
         if self.current == "(":
             self.advance()
             if self.current == ")":
@@ -220,14 +243,14 @@ class _Parser:
                 return EmptySequenceExpr()
             if not self.current:
                 raise StaticError("expected a closing parenthesis")
-            node = self.comma()
+            node = yield self.comma()
             if self.current != ")":
                 raise StaticError("expected a closing parenthesis")
             self.advance()
             return node
         return _parse_literal(self.advance())
 
-    def object_constructor(self) -> ObjectExpr:
+    def object_constructor(self) -> _ParseFrame:
         self.advance()
         members = []
         if self.current != "}":
@@ -238,7 +261,8 @@ class _Parser:
                 if self.current != ":":
                     raise StaticError("expected ':' after object member name")
                 self.advance()
-                members.append((name, self.expr_single()))
+                value = yield self.expr_single()
+                members.append((name, value))
                 if self.current != ",":
                     break
                 self.advance()
@@ -247,14 +271,14 @@ class _Parser:
         self.advance()
         return ObjectExpr(tuple(members))
 
-    def array_constructor(self) -> ArrayExpr:
+    def array_constructor(self) -> _ParseFrame:
         self.advance()
         elements = []
         if self.current != "]":
-            elements.append(self.expr_single())
+            elements.append((yield self.expr_single()))
             while self.current == ",":
                 self.advance()
-                elements.append(self.expr_single())
+                elements.append((yield self.expr_single()))
         if self.current != "]":
             raise StaticError("expected a closing bracket")
         self.advance()
