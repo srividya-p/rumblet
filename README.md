@@ -28,8 +28,9 @@ $ python -m rumblet run --expr '1 + 2, null'
 null
 ```
 
-The CLI accepts inline expressions through `run --expr`. File input is pending, along with query
-variables, FLWOR expressions, and function calls.
+The CLI accepts inline expressions through `run --expr`, including variable
+references and `let` clauses. File input, `for` and `where` clauses, and
+function calls are pending.
 
 ## Slices 00–04: foundations
 
@@ -284,4 +285,30 @@ $ python -m rumblet run --expr 'if (true) then 1 else 1 div 0'
 $ python -m rumblet run --expr 'if (false) then 1 div 0 else (2, 3)'
 2
 3
+```
+
+## Slice 15: variable references and let clauses
+
+Per §§8 and 12, a `$name` reference returns the entire bound sequence.
+Each `let` clause binds its initializer's sequence, including empty sequences,
+and the `return` expression evaluates once after all bindings are established.
+Later clauses can reference earlier bindings. An unbound reference raises
+`StaticError` before evaluation.
+
+The spec leaves variable name syntax and repeated bindings unspecified. Names
+use ASCII letters or underscores at the start, followed by ASCII letters,
+digits, or underscores, immediately after `$`. A later binding of the same
+name shadows the earlier one after its initializer finishes.
+
+```bash
+$ python -m rumblet run --expr 'let $x := (1,2) return $x'
+1
+2
+
+$ python -m rumblet run --expr 'let $x := 2 let $y := ($x, $x + 1) return $y'
+2
+3
+
+$ python -m rumblet run --expr 'let $x := () return 7'
+7
 ```

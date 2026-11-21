@@ -2,7 +2,7 @@
 
 import operator
 from abc import ABC, abstractmethod
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
 
 from rumblet.context import DynamicContext
 from rumblet.errors import DynamicError
@@ -236,6 +236,62 @@ class LiteralIterator(RuntimeIterator):
             raise StopIteration
         self._emitted = True
         return self._value
+
+
+class VariableIterator(RuntimeIterator):
+    """Yield the sequence bound to a variable in the current context."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__()
+        self._name = name
+        self._values: Iterator[Value] | None = None
+
+    def _restart(self) -> None:
+        self._values = None
+
+    def _close(self) -> None:
+        self._values = None
+
+    def _next(self) -> Value:
+        if self._values is None:
+            self._values = iter(self.context.lookup(self._name))
+        return next(self._values)
+
+
+class LetIterator(_CompositeIterator):
+    """Bind each complete sequence in a private scope, then pull the return."""
+
+    def __init__(self, bindings: tuple[tuple[str, RuntimeIterator], ...],
+                 return_iterator: RuntimeIterator) -> None:
+        super().__init__()
+        self._bindings = bindings
+        self._return = return_iterator
+        self._active_return: RuntimeIterator | None = None
+
+    def _restart(self) -> None:
+        child = self._detach_child()
+        if child is not None:
+            child.close()
+
+    def _detach_child(self) -> RuntimeIterator | None:
+        child, self._active_return = self._active_return, None
+        return child
+
+    def _pull(self) -> _Pull[Value | None]:
+        if self._active_return is None:
+            scope = self.context.copy()
+            for name, binding in self._bindings:
+                values = []
+                binding.open(scope)
+                try:
+                    while (item := (yield binding)) is not None:
+                        values.append(item)
+                finally:
+                    binding.close()
+                scope.bind(name, Sequence(values))
+            self._return.open(scope)
+            self._active_return = self._return
+        return (yield self._active_return)
 
 
 def _read_effective_boolean(operand: RuntimeIterator, context: DynamicContext) -> _Pull[bool]:

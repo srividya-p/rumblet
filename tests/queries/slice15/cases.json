@@ -1,0 +1,26 @@
+{
+  "summary": "Resolve variable references statically and bind whole sequences with one or more let clauses per §§8 and 12.",
+  "cases": [
+    {"expr": "let $x := (1,2) return $x", "stdout": "1\n2\n"},
+    {"expr": "let $items := (2, null, 2) return $items", "stdout": "2\nnull\n2\n"},
+    {"expr": "let $empty := () return $empty", "stdout": "()\n"},
+    {"expr": "let $empty := () return 7", "stdout": "7\n"},
+    {"expr": "let $items := (2, null, 2) return 7", "stdout": "7\n"},
+    {"expr": "let $_value2 := 4 let $items := ($_value2 + 1, null, $_value2) return $items", "stdout": "5\nnull\n4\n"},
+    {"expr": "let $x := 1 let $x := $x + 1 return $x", "stdout": "2\n"},
+    {"expr": "let $x := 1 return ((let $x := $x + 1 return $x), $x)", "stdout": "2\n1\n"},
+    {"expr": "let $x := let $y := 1 return $y return $x", "stdout": "1\n"},
+    {"expr": "let $x := $x return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $x\n"},
+    {"expr": "let $x := $y let $y := 1 return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $y\n"},
+    {"expr": "(let $x := 1 return $x), $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $x\n"},
+    {"expr": "let $x := 1 div 0 return 7", "stdout": "", "exit_code": 2, "stderr": "[rumblet] DynamicError: division or remainder by zero\n"},
+    {"expr": "let $x : = 1 return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected ':=' after let variable\n"},
+    {"expr": "let $x := 1", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected 'return' after let clauses\n"},
+    {"expr": "$items", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $items\n"},
+    {"expr": "if (true) then 1 else $missing", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $missing\n"},
+    {"expr": "1 div 0, $missing", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $missing\n"},
+    {"expr": "$", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected a variable name immediately after '$'\n"},
+    {"expr": "$ items", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected a variable name immediately after '$'\n"},
+    {"expr": "$9items", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected a variable name immediately after '$'\n"}
+  ]
+}

@@ -23,9 +23,12 @@ class DynamicContext:
     def bind(self, name: str, sequence: Sequence) -> None:
         self.update({name: sequence})
 
+    def copy(self) -> "DynamicContext":
+        """Create an independent scope with the current bindings."""
+        return DynamicContext(self._bindings)
+
     def lookup(self, name: str) -> Sequence:
         try:
             return self._bindings[name]
         except KeyError as error:
-            # Static analysis will reject unbound query references before execution.
             raise DynamicError(f"missing runtime binding: {name}") from error

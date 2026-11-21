@@ -21,6 +21,17 @@ class EmptySequenceExpr:
 
 
 @dataclass(frozen=True, slots=True)
+class VariableRefExpr:
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
+class LetExpr:
+    bindings: tuple[tuple[str, Expr], ...]
+    return_expr: Expr
+
+
+@dataclass(frozen=True, slots=True)
 class ArithmeticExpr:
     operator: str
     operands: tuple[Expr, ...]
@@ -76,6 +87,7 @@ class ArrayExpr:
 Expr = (
     LiteralExpr | EmptySequenceExpr | ArithmeticExpr | ArithmeticChainExpr | LogicalExpr
     | ComparisonExpr | InstanceOfExpr | IfExpr | CommaExpr | ObjectExpr | ArrayExpr
+    | VariableRefExpr | LetExpr
 )
 
 type _ParseFrame = Generator[_ParseFrame, Expr | None, Expr]
@@ -83,7 +95,7 @@ type _ParseFrame = Generator[_ParseFrame, Expr | None, Expr]
 _TOKEN = re.compile(
     r'[ \t\r\n]+|"(?:[^"\\]|\\[\s\S])*"|'
     r'[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|'
-    r'[a-zA-Z_][a-zA-Z_0-9]*|[\s\S]'
+    r':=|\$?[a-zA-Z_][a-zA-Z_0-9]*|[\s\S]'
 )
 
 
@@ -136,9 +148,29 @@ class _Parser:
         return CommaExpr(tuple(operands))
 
     def expr_single(self) -> _ParseFrame:
+        if self.current == "let":
+            return (yield from self.let_expr())
         if self.current == "if":
             return (yield from self.conditional())
         return (yield from self.or_expr())
+
+    def let_expr(self) -> _ParseFrame:
+        bindings = []
+        while self.current == "let":
+            self.advance()
+            if not self.current.startswith("$") or self.current == "$":
+                raise StaticError("expected a variable name after 'let'")
+            name = self.advance()[1:]
+            if self.current != ":=":
+                raise StaticError("expected ':=' after let variable")
+            self.advance()
+            binding = yield self.expr_single()
+            bindings.append((name, binding))
+        if self.current != "return":
+            raise StaticError("expected 'return' after let clauses")
+        self.advance()
+        return_expr = yield self.expr_single()
+        return LetExpr(tuple(bindings), return_expr)
 
     def conditional(self) -> _ParseFrame:
         self.advance()
@@ -232,6 +264,10 @@ class _Parser:
         return node
 
     def primary(self) -> _ParseFrame:
+        if self.current == "$":
+            raise StaticError("expected a variable name immediately after '$'")
+        if self.current.startswith("$"):
+            return VariableRefExpr(self.advance()[1:])
         if self.current == "{":
             return (yield from self.object_constructor())
         if self.current == "[":
