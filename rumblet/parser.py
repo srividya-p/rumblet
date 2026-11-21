@@ -27,6 +27,12 @@ class ArithmeticExpr:
 
 
 @dataclass(frozen=True, slots=True)
+class ArithmeticChainExpr:
+    first: Expr
+    steps: tuple[tuple[str, Expr], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class LogicalExpr:
     operator: str
     operands: tuple[Expr, ...]
@@ -68,7 +74,7 @@ class ArrayExpr:
 
 
 Expr = (
-    LiteralExpr | EmptySequenceExpr | ArithmeticExpr | LogicalExpr
+    LiteralExpr | EmptySequenceExpr | ArithmeticExpr | ArithmeticChainExpr | LogicalExpr
     | ComparisonExpr | InstanceOfExpr | IfExpr | CommaExpr | ObjectExpr | ArrayExpr
 )
 
@@ -178,18 +184,20 @@ class _Parser:
         return left
 
     def additive(self) -> Expr:
-        node = self.multiplicative()
+        first = self.multiplicative()
+        steps = []
         while self.current in ("+", "-"):
             operator = self.advance()
-            node = ArithmeticExpr(operator, (node, self.multiplicative()))
-        return node
+            steps.append((operator, self.multiplicative()))
+        return ArithmeticChainExpr(first, tuple(steps)) if steps else first
 
     def multiplicative(self) -> Expr:
-        node = self.unary()
+        first = self.unary()
+        steps = []
         while self.current in ("*", "div", "mod"):
             operator = self.advance()
-            node = ArithmeticExpr(operator, (node, self.unary()))
-        return node
+            steps.append((operator, self.unary()))
+        return ArithmeticChainExpr(first, tuple(steps)) if steps else first
 
     def unary(self) -> Expr:
         operators = []

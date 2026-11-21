@@ -2,6 +2,7 @@
 
 from rumblet.errors import DynamicError
 from rumblet.parser import (
+    ArithmeticChainExpr,
     ArithmeticExpr,
     ArrayExpr,
     CommaExpr,
@@ -15,6 +16,7 @@ from rumblet.parser import (
     parse,
 )
 from rumblet.runtime import (
+    ArithmeticChainIterator,
     ArithmeticIterator,
     ArrayIterator,
     CommaIterator,
@@ -35,6 +37,11 @@ def _build_iterator(node: Expr) -> RuntimeIterator:
         return EmptySequenceIterator()
     if isinstance(node, ArithmeticExpr):
         return ArithmeticIterator(node.operator, tuple(map(_build_iterator, node.operands)))
+    if isinstance(node, ArithmeticChainExpr):
+        return ArithmeticChainIterator(
+            _build_iterator(node.first),
+            tuple((operator, _build_iterator(operand)) for operator, operand in node.steps),
+        )
     if isinstance(node, LogicalExpr):
         return LogicalIterator(node.operator, tuple(map(_build_iterator, node.operands)))
     if isinstance(node, ComparisonExpr):

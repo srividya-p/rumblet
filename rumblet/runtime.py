@@ -385,6 +385,15 @@ def _read_number(iterator: RuntimeIterator, context: DynamicContext) -> int | fl
         iterator.close()
 
 
+def _apply_arithmetic(operation, *operands: float) -> NumberValue:
+    try:
+        return NumberValue(operation(*operands))
+    except ZeroDivisionError:
+        raise DynamicError("division or remainder by zero") from None
+    except (OverflowError, ValueError) as error:
+        raise DynamicError("arithmetic result must be finite") from error
+
+
 class ArithmeticIterator(RuntimeIterator):
     """Pull singleton numbers from child iterators and emit one result."""
 
@@ -401,11 +410,29 @@ class ArithmeticIterator(RuntimeIterator):
         if self._emitted:
             raise StopIteration
         operands = [_read_number(child, self.context) for child in self._operands]
-        try:
-            result = NumberValue(self._operation(*operands))
-        except ZeroDivisionError:
-            raise DynamicError("division or remainder by zero") from None
-        except (OverflowError, ValueError) as error:
-            raise DynamicError("arithmetic result must be finite") from error
+        result = _apply_arithmetic(self._operation, *operands)
+        self._emitted = True
+        return result
+
+
+class ArithmeticChainIterator(RuntimeIterator):
+    """Fold a binary operator chain in source order."""
+
+    def __init__(self, first: RuntimeIterator,
+                 steps: tuple[tuple[str, RuntimeIterator], ...]) -> None:
+        super().__init__()
+        self._first = first
+        self._steps = tuple((_ARITHMETIC[2, operator], operand) for operator, operand in steps)
+
+    def _restart(self) -> None:
+        self._emitted = False
+
+    def _next(self) -> Value:
+        if self._emitted:
+            raise StopIteration
+        result = NumberValue(_read_number(self._first, self.context))
+        for operation, operand in self._steps:
+            right = _read_number(operand, self.context)
+            result = _apply_arithmetic(operation, result.value, right)
         self._emitted = True
         return result
