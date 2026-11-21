@@ -5,7 +5,7 @@ bool, and None. Both integer and floating representations have JSON kind number.
 These are model values, not Python truth values or query result sequences.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 from typing import ClassVar
 
@@ -76,6 +76,7 @@ class ArrayValue(Value):
     """An ordered collection of model values, separate from a query sequence."""
 
     _elements: tuple
+    _hash: int = field(compare=False, repr=False)
     kind: ClassVar[str] = "array"
 
     def __init__(self, elements: list[Value]) -> None:
@@ -83,7 +84,14 @@ class ArrayValue(Value):
             raise TypeError("array elements must be supplied as a list of model values")
         for element in elements:
             _require_value(element)
-        object.__setattr__(self, "_elements", tuple(elements))
+        contents = tuple(elements)
+        object.__setattr__(self, "_elements", contents)
+        # Object members hash their values. Cache array hashes bottom-up
+        # so inserting a deeply nested array does not recurse.
+        object.__setattr__(self, "_hash", hash((contents,)))
+
+    def __hash__(self) -> int:
+        return self._hash
 
     @property
     def elements(self) -> tuple:

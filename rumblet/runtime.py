@@ -77,11 +77,25 @@ class RuntimeIterator(ABC):
             raise
 
     def close(self) -> None:
-        if self._context is not None:
-            try:
-                self._close()
-            finally:
-                self._context = None
+        """Close the active chain and release its contexts even on failure."""
+        active = []
+        first_error: BaseException | None = None
+        iterator = self
+        try:
+            while iterator is not None and iterator._context is not None:
+                active.append(iterator)
+                child = iterator._detach_child()
+                try:
+                    iterator._close()
+                except BaseException as error:  # noqa: BLE001
+                    if first_error is None:
+                        first_error = error
+                iterator = child
+        finally:
+            for iterator in reversed(active):
+                iterator._context = None
+        if first_error is not None:
+            raise first_error
 
     def _restart(self) -> None:
         """Prepare or rewind state; subclasses may read or update context bindings."""
@@ -89,9 +103,68 @@ class RuntimeIterator(ABC):
     def _close(self) -> None:
         """Release subclass resources."""
 
+    def _detach_child(self) -> "RuntimeIterator | None":
+        """Release ownership of the child held open between pulls."""
+        return None
+
     @abstractmethod
     def _next(self) -> Value:
         """Return one model value, or raise StopIteration."""
+
+
+type _Pull[Result] = Generator[RuntimeIterator, Value | None, Result]
+
+
+class _CompositeIterator(RuntimeIterator):
+    """An iterator whose pull can suspend while a child produces a value."""
+
+    @abstractmethod
+    def _pull(self) -> _Pull[Value | None]:
+        """Yield requests for child items. Return None at exhaustion."""
+
+    def _next(self) -> Value:
+        # Each suspended frame asks for one child item. Deliver failures back
+        # into those frames so operand readers run their cleanup on errors.
+        frames = [(self, self._pull())]
+        result = None
+        error = None
+        while True:
+            iterator, frame = frames[-1]
+            try:
+                if error is None:
+                    child = frame.send(result)
+                else:
+                    pending, error = error, None
+                    child = frame.throw(pending)
+            except StopIteration as completed:
+                frames.pop()
+                result = completed.value
+                if result is None:
+                    iterator._exhausted = True
+                if not frames:
+                    if result is None:
+                        raise StopIteration from None
+                    return result
+                continue
+            except BaseException as failure:
+                frames.pop()
+                if not frames:
+                    raise
+                error = failure
+                continue
+
+            try:
+                if isinstance(child, _CompositeIterator):
+                    _ = child.context
+                    if not child._exhausted:
+                        frames.append((child, child._pull()))
+                    result = None
+                else:
+                    result = child.next()
+            except StopIteration:
+                result = None
+            except BaseException as failure:  # noqa: BLE001
+                error = failure
 
 
 class EmptySequenceIterator(RuntimeIterator):
@@ -101,34 +174,46 @@ class EmptySequenceIterator(RuntimeIterator):
         raise StopIteration
 
 
-class CommaIterator(RuntimeIterator):
+class CommaIterator(_CompositeIterator):
     """Drain each operand in order, opening it only when needed."""
 
     def __init__(self, operands: tuple[RuntimeIterator, ...]) -> None:
         super().__init__()
         self._operands = operands
-        self._items = self._concatenate()
+        self._index = 0
+        self._child: RuntimeIterator | None = None
 
     def _restart(self) -> None:
-        self._items.close()
-        self._items = self._concatenate()
+        child = self._detach_child()
+        if child is not None:
+            child.close()
+        self._index = 0
 
-    def _next(self) -> Value:
-        return next(self._items)
+    def _detach_child(self) -> RuntimeIterator | None:
+        child, self._child = self._child, None
+        return child
 
-    def _close(self) -> None:
-        self._items.close()
-
-    def _concatenate(self) -> Generator[Value, None, None]:
-        for operand in self._operands:
-            operand.open(self.context)
-            try:
-                while True:
-                    yield operand.next()
-            except StopIteration:
-                pass
-            finally:
-                operand.close()
+    def _pull(self) -> _Pull[Value | None]:
+        try:
+            while self._index < len(self._operands):
+                child = self._child
+                if child is None:
+                    child = self._operands[self._index]
+                    child.open(self.context)
+                    self._child = child
+                item = yield child
+                if item is not None:
+                    return item
+                self._child = None
+                child.close()
+                self._index += 1
+        except BaseException:
+            self._index = len(self._operands)
+            child = self._detach_child()
+            if child is not None:
+                child.close()
+            raise
+        return None
 
 
 class LiteralIterator(RuntimeIterator):
@@ -153,21 +238,21 @@ class LiteralIterator(RuntimeIterator):
         return self._value
 
 
-def _read_effective_boolean(operand: RuntimeIterator, context: DynamicContext) -> bool:
+def _read_effective_boolean(operand: RuntimeIterator, context: DynamicContext) -> _Pull[bool]:
     operand.open(context)
     try:
         values = []
         for _ in range(2):
-            try:
-                values.append(operand.next())
-            except StopIteration:
+            item = yield operand
+            if item is None:
                 break
+            values.append(item)
         return effective_boolean_value(Sequence(values))
     finally:
         operand.close()
 
 
-class LogicalIterator(RuntimeIterator):
+class LogicalIterator(_CompositeIterator):
     """Evaluate logical operands and emit one boolean."""
 
     def __init__(self, operation: str, operands: tuple[RuntimeIterator, ...]) -> None:
@@ -179,10 +264,12 @@ class LogicalIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
-        operands = [_read_effective_boolean(child, self.context) for child in self._operands]
+            return None
+        operands = []
+        for child in self._operands:
+            operands.append((yield from _read_effective_boolean(child, self.context)))
         if self._operation == "not":
             result = not operands[0]
         elif self._operation == "and":
@@ -193,7 +280,7 @@ class LogicalIterator(RuntimeIterator):
         return BooleanValue(result)
 
 
-class IfIterator(RuntimeIterator):
+class IfIterator(_CompositeIterator):
     """Evaluate the test once per open or reset and pull from the selected branch."""
 
     def __init__(self, test: RuntimeIterator, then_branch: RuntimeIterator,
@@ -205,24 +292,24 @@ class IfIterator(RuntimeIterator):
         self._selected: RuntimeIterator | None = None
 
     def _restart(self) -> None:
-        self._close()
+        child = self._detach_child()
+        if child is not None:
+            child.close()
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._selected is None:
-            condition = _read_effective_boolean(self._test, self.context)
+            condition = yield from _read_effective_boolean(self._test, self.context)
             selected = self._then_branch if condition else self._else_branch
             selected.open(self.context)
             self._selected = selected
-        return self._selected.next()
+        return (yield self._selected)
 
-    def _close(self) -> None:
-        selected = self._selected
-        self._selected = None
-        if selected is not None:
-            selected.close()
+    def _detach_child(self) -> RuntimeIterator | None:
+        selected, self._selected = self._selected, None
+        return selected
 
 
-class ObjectIterator(RuntimeIterator):
+class ObjectIterator(_CompositeIterator):
     """Evaluate member expressions and emit one object."""
 
     def __init__(self, members: tuple[tuple[str, RuntimeIterator], ...]) -> None:
@@ -233,21 +320,21 @@ class ObjectIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
+            return None
         members = {}
         for name, operand in self._members:
             if name in members:
                 raise DynamicError(f"duplicate object member name: {name!r}")
             message = f"object member {name!r} must contain exactly one value"
-            members[name] = _read_single_value(operand, self.context, message)
+            members[name] = yield from _read_single_value(operand, self.context, message)
         result = ObjectValue(members)
         self._emitted = True
         return result
 
 
-class ArrayIterator(RuntimeIterator):
+class ArrayIterator(_CompositeIterator):
     """Evaluate elements in order and emit one array."""
 
     def __init__(self, elements: tuple[RuntimeIterator, ...]) -> None:
@@ -258,35 +345,31 @@ class ArrayIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
+            return None
         elements = []
         for position, operand in enumerate(self._elements, start=1):
             message = f"array element {position} must contain exactly one value"
-            elements.append(_read_single_value(operand, self.context, message))
+            element = yield from _read_single_value(operand, self.context, message)
+            elements.append(element)
         result = ArrayValue(elements)
         self._emitted = True
         return result
 
 
-def _read_single_value(operand: RuntimeIterator, context: DynamicContext, message: str) -> Value:
+def _read_single_value(operand: RuntimeIterator, context: DynamicContext, message: str) -> _Pull[Value]:
     operand.open(context)
     try:
-        try:
-            value = operand.next()
-        except StopIteration:
-            raise DynamicError(message) from None
-        try:
-            operand.next()
-        except StopIteration:
-            return value
-        raise DynamicError(message)
+        value = yield operand
+        if value is None or (yield operand) is not None:
+            raise DynamicError(message)
+        return value
     finally:
         operand.close()
 
 
-class InstanceOfIterator(RuntimeIterator):
+class InstanceOfIterator(_CompositeIterator):
     """Test the model kind of a singleton operand and emit one boolean."""
 
     def __init__(self, operand: RuntimeIterator, type_name: str) -> None:
@@ -298,10 +381,10 @@ class InstanceOfIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
-        value = _read_single_value(
+            return None
+        value = yield from _read_single_value(
             self._operand, self.context, "instance of operand must contain exactly one value",
         )
         self._emitted = True
@@ -318,7 +401,7 @@ _COMPARISONS = {
 }
 
 
-class ComparisonIterator(RuntimeIterator):
+class ComparisonIterator(_CompositeIterator):
     """Compare two singleton atomic operands and emit one boolean."""
 
     def __init__(self, operation: str, left: RuntimeIterator, right: RuntimeIterator) -> None:
@@ -332,18 +415,18 @@ class ComparisonIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _read_atomic(self, operand: RuntimeIterator) -> AtomicValue:
+    def _read_atomic(self, operand: RuntimeIterator) -> _Pull[AtomicValue]:
         message = "comparison operands must contain exactly one atomic value"
-        value = _read_single_value(operand, self.context, message)
+        value = yield from _read_single_value(operand, self.context, message)
         if not isinstance(value, AtomicValue):
             raise DynamicError(message)
         return value
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
-        left = self._read_atomic(self._left)
-        right = self._read_atomic(self._right)
+            return None
+        left = yield from self._read_atomic(self._left)
+        right = yield from self._read_atomic(self._right)
         if self._ordering:
             if isinstance(left, NumberValue) and isinstance(right, NumberValue) or isinstance(left, StringValue) and isinstance(right, StringValue):
                 result = self._compare(left.value, right.value)
@@ -366,21 +449,14 @@ _ARITHMETIC = {
 }
 
 
-def _read_number(iterator: RuntimeIterator, context: DynamicContext) -> int | float:
+def _read_number(iterator: RuntimeIterator, context: DynamicContext) -> _Pull[int | float]:
     message = "arithmetic operands must contain exactly one number"
     iterator.open(context)
     try:
-        try:
-            value = iterator.next()
-        except StopIteration:
-            raise DynamicError(message) from None
-        if not isinstance(value, NumberValue):
+        value = yield iterator
+        if not isinstance(value, NumberValue) or (yield iterator) is not None:
             raise DynamicError(message)
-        try:
-            iterator.next()
-        except StopIteration:
-            return value.value
-        raise DynamicError(message)
+        return value.value
     finally:
         iterator.close()
 
@@ -394,7 +470,7 @@ def _apply_arithmetic(operation, *operands: float) -> NumberValue:
         raise DynamicError("arithmetic result must be finite") from error
 
 
-class ArithmeticIterator(RuntimeIterator):
+class ArithmeticIterator(_CompositeIterator):
     """Pull singleton numbers from child iterators and emit one result."""
 
     def __init__(self, operator: str, operands: tuple[RuntimeIterator, ...]) -> None:
@@ -406,16 +482,18 @@ class ArithmeticIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
-        operands = [_read_number(child, self.context) for child in self._operands]
+            return None
+        operands = []
+        for child in self._operands:
+            operands.append((yield from _read_number(child, self.context)))
         result = _apply_arithmetic(self._operation, *operands)
         self._emitted = True
         return result
 
 
-class ArithmeticChainIterator(RuntimeIterator):
+class ArithmeticChainIterator(_CompositeIterator):
     """Fold a binary operator chain in source order."""
 
     def __init__(self, first: RuntimeIterator,
@@ -427,12 +505,13 @@ class ArithmeticChainIterator(RuntimeIterator):
     def _restart(self) -> None:
         self._emitted = False
 
-    def _next(self) -> Value:
+    def _pull(self) -> _Pull[Value | None]:
         if self._emitted:
-            raise StopIteration
-        result = NumberValue(_read_number(self._first, self.context))
+            return None
+        first = yield from _read_number(self._first, self.context)
+        result = NumberValue(first)
         for operation, operand in self._steps:
-            right = _read_number(operand, self.context)
+            right = yield from _read_number(operand, self.context)
             result = _apply_arithmetic(operation, result.value, right)
         self._emitted = True
         return result

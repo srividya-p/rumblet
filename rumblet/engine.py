@@ -1,5 +1,7 @@
 """Parse a query, run its iterator, and collect the result sequence."""
 
+from collections.abc import Generator
+
 from rumblet.errors import DynamicError
 from rumblet.parser import (
     ArithmeticChainExpr,
@@ -33,35 +35,73 @@ from rumblet.sequence import Sequence
 
 
 def _build_iterator(node: Expr) -> RuntimeIterator:
+    """Build child iterators before their parents using an explicit stack."""
+    frames = [_iterator_frame(node)]
+    result: RuntimeIterator | None = None
+    while True:
+        frame = frames[-1]
+        try:
+            child = next(frame) if result is None else frame.send(result)
+        except StopIteration as completed:
+            frames.pop()
+            if not frames:
+                return completed.value
+            result = completed.value
+        else:
+            frames.append(_iterator_frame(child))
+            result = None
+
+
+type _BuildFrame[Result] = Generator[Expr, RuntimeIterator, Result]
+
+
+def _build_children(nodes: tuple[Expr, ...]) -> _BuildFrame[tuple[RuntimeIterator, ...]]:
+    children = []
+    for node in nodes:
+        children.append((yield node))
+    return tuple(children)
+
+
+def _iterator_frame(node: Expr) -> _BuildFrame[RuntimeIterator]:
     if isinstance(node, EmptySequenceExpr):
         return EmptySequenceIterator()
     if isinstance(node, ArithmeticExpr):
-        return ArithmeticIterator(node.operator, tuple(map(_build_iterator, node.operands)))
+        operands = yield from _build_children(node.operands)
+        return ArithmeticIterator(node.operator, operands)
     if isinstance(node, ArithmeticChainExpr):
-        return ArithmeticChainIterator(
-            _build_iterator(node.first),
-            tuple((operator, _build_iterator(operand)) for operator, operand in node.steps),
-        )
+        first = yield node.first
+        steps = []
+        for operator, operand in node.steps:
+            child = yield operand
+            steps.append((operator, child))
+        return ArithmeticChainIterator(first, tuple(steps))
     if isinstance(node, LogicalExpr):
-        return LogicalIterator(node.operator, tuple(map(_build_iterator, node.operands)))
+        operands = yield from _build_children(node.operands)
+        return LogicalIterator(node.operator, operands)
     if isinstance(node, ComparisonExpr):
-        return ComparisonIterator(node.operator, _build_iterator(node.left), _build_iterator(node.right))
+        left = yield node.left
+        right = yield node.right
+        return ComparisonIterator(node.operator, left, right)
     if isinstance(node, InstanceOfExpr):
-        return InstanceOfIterator(_build_iterator(node.operand), node.type_name)
+        operand = yield node.operand
+        return InstanceOfIterator(operand, node.type_name)
     if isinstance(node, IfExpr):
-        return IfIterator(
-            _build_iterator(node.test),
-            _build_iterator(node.then_branch),
-            _build_iterator(node.else_branch),
-        )
+        test = yield node.test
+        then_branch = yield node.then_branch
+        else_branch = yield node.else_branch
+        return IfIterator(test, then_branch, else_branch)
     if isinstance(node, CommaExpr):
-        return CommaIterator(tuple(map(_build_iterator, node.operands)))
+        operands = yield from _build_children(node.operands)
+        return CommaIterator(operands)
     if isinstance(node, ObjectExpr):
-        return ObjectIterator(tuple(
-            (name, _build_iterator(value)) for name, value in node.members
-        ))
+        members = []
+        for name, value in node.members:
+            child = yield value
+            members.append((name, child))
+        return ObjectIterator(tuple(members))
     if isinstance(node, ArrayExpr):
-        return ArrayIterator(tuple(map(_build_iterator, node.elements)))
+        elements = yield from _build_children(node.elements)
+        return ArrayIterator(elements)
     return LiteralIterator(node.value)
 
 
