@@ -1,0 +1,17 @@
+{
+  "summary": "Filter for and let tuples before return using the effective boolean value of an optional where expression.",
+  "cases": [
+    {"expr": "for $x in (1,2,3,4) where $x mod 2 eq 0 return $x", "stdout": "2\n4\n"},
+    {"expr": "for $x in (1,2,2,3) where $x eq 2 return ($x, $x + 10)", "stdout": "2\n12\n2\n12\n"},
+    {"expr": "for $x in (1,2) where () return 1 div 0", "stdout": "()\n"},
+    {"expr": "for $x in () where 1 div 0 return $x", "stdout": "()\n"},
+    {"expr": "let $x := (1,2) let $keep := true where $keep return $x", "stdout": "1\n2\n"},
+    {"expr": "let $x := false where $x return 1 div 0", "stdout": "()\n"},
+    {"expr": "let $x := () where $x return 1 div 0", "stdout": "()\n"},
+    {"expr": "for $x in (true, 2) where $x return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n"},
+    {"expr": "let $x := (true,false) where $x return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n"},
+    {"expr": "for $x in () where $missing return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $missing\n"},
+    {"expr": "let $x := 1 where false return $missing", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $missing\n"},
+    {"expr": "for $x in 1 where true", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected 'return' after for clause\n"}
+  ]
+}

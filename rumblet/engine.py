@@ -80,16 +80,23 @@ def _iterator_frame(node: Expr, bound_names: frozenset[str]) -> _BuildFrame[Runt
         return VariableIterator(node.name)
     if isinstance(node, ForExpr):
         source = yield node.source
-        return_iterator = yield (node.return_expr, bound_names | {node.name})
-        return ForIterator(node.name, source, return_iterator)
+        bound_names = bound_names | {node.name}
+        predicate = None
+        if node.where_expr is not None:
+            predicate = yield (node.where_expr, bound_names)
+        return_iterator = yield (node.return_expr, bound_names)
+        return ForIterator(node.name, source, return_iterator, predicate)
     if isinstance(node, LetExpr):
         bindings = []
         for name, binding in node.bindings:
             child = yield (binding, bound_names)
             bindings.append((name, child))
             bound_names = bound_names | {name}
+        predicate = None
+        if node.where_expr is not None:
+            predicate = yield (node.where_expr, bound_names)
         return_iterator = yield (node.return_expr, bound_names)
-        return LetIterator(tuple(bindings), return_iterator)
+        return LetIterator(tuple(bindings), return_iterator, predicate)
     if isinstance(node, ArithmeticExpr):
         operands = yield from _build_children(node.operands)
         return ArithmeticIterator(node.operator, operands)

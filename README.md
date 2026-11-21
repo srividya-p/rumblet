@@ -29,8 +29,9 @@ null
 ```
 
 The CLI accepts inline expressions through `run --expr`, including variable
-references, `let` clauses, and single-clause `for` expressions. File input,
-mixed `for`/`let` clause chains, `where` clauses, and function calls are pending.
+references, `let` clauses, and single-clause `for` expressions. Both `for` and
+`let` support an optional `where` clause. File input, mixed `for`/`let` clause
+chains, and function calls are pending.
 
 ## Slices 00–04: foundations
 
@@ -335,5 +336,27 @@ $ python -m rumblet run --expr 'for $x in (1,2) return ($x,$x)'
 2
 
 $ python -m rumblet run --expr 'for $x in () return 1 div 0'
+()
+```
+
+## Slice 17: where clauses
+
+Per §12, an optional `where ExprSingle` goes after the `for` or `let` bindings
+and before `return`. The predicate can reference those bindings and is evaluated
+once per tuple. A singleton `true` keeps the tuple and evaluates `return`.
+An empty sequence or a singleton `false` drops the tuple and skips `return`.
+Any other predicate result raises `DynamicError` under the effective boolean
+value rules in §10.
+
+```bash
+$ python -m rumblet run --expr 'for $x in (1,2,3,4) where $x mod 2 eq 0 return $x'
+2
+4
+
+$ python -m rumblet run --expr 'let $x := (1,2) let $keep := true where $keep return $x'
+1
+2
+
+$ python -m rumblet run --expr 'for $x in (1,2) where () return 1 div 0'
 ()
 ```

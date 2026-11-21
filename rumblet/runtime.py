@@ -268,10 +268,11 @@ class LetIterator(_CompositeIterator):
     """Bind each complete sequence in a private scope, then pull the return."""
 
     def __init__(self, bindings: tuple[tuple[str, RuntimeIterator], ...],
-                 return_iterator: RuntimeIterator) -> None:
+                 return_iterator: RuntimeIterator, predicate: RuntimeIterator | None = None) -> None:
         super().__init__()
         self._bindings = bindings
         self._return = return_iterator
+        self._predicate = predicate
         self._active_return: RuntimeIterator | None = None
 
     def _restart(self) -> None:
@@ -295,6 +296,9 @@ class LetIterator(_CompositeIterator):
                 finally:
                     binding.close()
                 scope.bind(name, Sequence(values))
+            if self._predicate is not None:
+                if not (yield from _read_effective_boolean(self._predicate, scope)):
+                    return None
             self._return.open(scope)
             self._active_return = self._return
         return (yield self._active_return)
@@ -304,11 +308,13 @@ class ForIterator(_CompositeIterator):
     """Stream the source and concatenate the return sequence for each item."""
 
     def __init__(self, name: str, source: RuntimeIterator,
-                 return_iterator: RuntimeIterator) -> None:
+                 return_iterator: RuntimeIterator, predicate: RuntimeIterator | None = None) -> None:
         super().__init__()
         self._name = name
         self._source = source
         self._return = return_iterator
+        self._predicate = predicate
+        self._scope: DynamicContext | None = None
         self._source_open = False
         self._return_open = False
         self._has_binding = False
@@ -320,6 +326,7 @@ class ForIterator(_CompositeIterator):
         if self._source_open:
             children.append(self._source)
         self._return_open = self._source_open = self._has_binding = False
+        self._scope = None
         return tuple(children)
 
     def _restart(self) -> None:
@@ -340,17 +347,21 @@ class ForIterator(_CompositeIterator):
                 result = yield self._return
                 if result is not None:
                     return result
+                self._has_binding = False
             item = yield self._source
             if item is None:
                 return None
+            if self._scope is None:
+                self._scope = self.context.copy()
+            scope = self._scope
+            scope.bind(self._name, Sequence([item]))
+            if self._predicate is not None:
+                if not (yield from _read_effective_boolean(self._predicate, scope)):
+                    continue
             if not self._return_open:
-                scope = self.context.copy()
-                scope.bind(self._name, Sequence([item]))
                 self._return_open = True
                 self._return.open(scope)
-                self._return.reset()
-            else:
-                self._return.reset(bindings={self._name: Sequence([item])})
+            self._return.reset()
             self._has_binding = True
 
 

@@ -29,6 +29,7 @@ class VariableRefExpr:
 class LetExpr:
     bindings: tuple[tuple[str, Expr], ...]
     return_expr: Expr
+    where_expr: Expr | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +37,7 @@ class ForExpr:
     name: str
     source: Expr
     return_expr: Expr
+    where_expr: Expr | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,11 +172,12 @@ class _Parser:
             raise StaticError("expected 'in' after for variable")
         self.advance()
         source = yield self.expr_single()
+        where_expr = yield from self.optional_where()
         if self.current != "return":
             raise StaticError("expected 'return' after for clause")
         self.advance()
         return_expr = yield self.expr_single()
-        return ForExpr(name, source, return_expr)
+        return ForExpr(name, source, return_expr, where_expr)
 
     def variable_name(self, clause: str) -> str:
         if not self.current.startswith("$") or self.current == "$":
@@ -191,11 +194,18 @@ class _Parser:
             self.advance()
             binding = yield self.expr_single()
             bindings.append((name, binding))
+        where_expr = yield from self.optional_where()
         if self.current != "return":
             raise StaticError("expected 'return' after let clauses")
         self.advance()
         return_expr = yield self.expr_single()
-        return LetExpr(tuple(bindings), return_expr)
+        return LetExpr(tuple(bindings), return_expr, where_expr)
+
+    def optional_where(self) -> Generator[_ParseFrame, Expr | None, Expr | None]:
+        if self.current == "where":
+            self.advance()
+            return (yield self.expr_single())
+        return None
 
     def conditional(self) -> _ParseFrame:
         self.advance()
