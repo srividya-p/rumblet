@@ -30,7 +30,8 @@ null
 
 The CLI accepts inline expressions through `run --expr`, including FLWOR
 expressions with mixed `for` and `let` clauses and an optional `where`.
-File input and function calls are pending.
+The CLI also supports the built-in sequence functions `count`, `head`,
+`tail`, `exists`, and `empty`. File input is pending.
 
 ## Slices 00–04: foundations
 
@@ -406,4 +407,48 @@ $ python -m rumblet run --expr 'for $base in (2,4) let $rows := for $n in (1,3) 
 $ python -m rumblet run --expr 'let $x := 5 for $row in for $x in ($x,$x + 1) return [$x,$x * 2] return {"outer":$x,"row":$row}'
 {"outer":5,"row":[5,10]}
 {"outer":5,"row":[6,12]}
+```
+
+## Slice 19: static function calls
+
+Per §§5 and 14, a call takes zero or more comma-separated single expressions.
+Wrap a comma expression in parentheses to pass its result as one argument.
+Function names use the same ASCII identifier spelling as variables, without
+the dollar sign. The engine resolves names before evaluation, including in
+unselected conditional branches.
+
+Arguments are evaluated from left to right, preserving the order and
+cardinality of each sequence. Each built-in takes exactly one argument.
+Wrong arity is a static error, so use `count((1, 2))` to count two items.
+
+| Function | Result | Empty input |
+| --- | --- | --- |
+| `count($seq)` | Number of items in the sequence | `0` |
+| `head($seq)` | First item as a singleton sequence | `()` |
+| `tail($seq)` | All items after the first, in order | `()` |
+| `exists($seq)` | Boolean indicating whether the sequence contains any items | `false` |
+| `empty($seq)` | Boolean indicating whether the sequence is empty | `true` |
+
+Each array, object, or null contributes one item. For example,
+`count([1, 2])` yields `1` and `exists(null)` yields `true`.
+`tail` also returns an empty sequence for singleton input.
+
+Python callers can add names through `evaluate(expr, functions=...)`.
+Built-in names take precedence. Each supplied callable receives one
+`Sequence` per argument and returns a `Sequence`.
+
+```bash
+$ python -m rumblet run --expr 'count((1, 2, 2)), head((null, 2)), tail((0, 2, 2, 1))'
+3
+null
+2
+2
+1
+
+$ python -m rumblet run --expr 'exists(null), empty(())'
+true
+true
+
+$ python -m rumblet run --expr 'count(1, 2)'
+[rumblet] StaticError: count expects exactly one argument
 ```

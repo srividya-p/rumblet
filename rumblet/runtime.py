@@ -2,7 +2,7 @@
 
 import operator
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterator
+from collections.abc import Callable, Generator, Iterator
 
 from rumblet.context import DynamicContext
 from rumblet.errors import DynamicError
@@ -119,6 +119,7 @@ class RuntimeIterator(ABC):
 
 
 type _Pull[Result] = Generator[RuntimeIterator, Value | None, Result]
+type StaticFunction = Callable[..., Sequence]
 
 
 class _CompositeIterator(RuntimeIterator):
@@ -264,6 +265,42 @@ class VariableIterator(RuntimeIterator):
         return next(self._values)
 
 
+def _read_sequence(operand: RuntimeIterator, context: DynamicContext) -> _Pull[Sequence]:
+    values = []
+    operand.open(context)
+    try:
+        while (item := (yield operand)) is not None:
+            values.append(item)
+    finally:
+        operand.close()
+    return Sequence(values)
+
+
+class FunctionCallIterator(_CompositeIterator):
+    """Pass each argument sequence to a statically resolved function."""
+
+    def __init__(self, function: StaticFunction,
+                 arguments: tuple[RuntimeIterator, ...]) -> None:
+        super().__init__()
+        self._function = function
+        self._arguments = arguments
+        self._result: Iterator[Value] | None = None
+
+    def _restart(self) -> None:
+        self._result = None
+
+    def _close(self) -> None:
+        self._result = None
+
+    def _pull(self) -> _Pull[Value | None]:
+        if self._result is None:
+            arguments = []
+            for operand in self._arguments:
+                arguments.append((yield from _read_sequence(operand, self.context)))
+            self._result = iter(self._function(*arguments))
+        return next(self._result, None)
+
+
 class LetIterator(_CompositeIterator):
     """Bind each complete sequence in a private scope, then pull the return."""
 
@@ -288,14 +325,7 @@ class LetIterator(_CompositeIterator):
         if self._active_return is None:
             scope = self.context.copy()
             for name, binding in self._bindings:
-                values = []
-                binding.open(scope)
-                try:
-                    while (item := (yield binding)) is not None:
-                        values.append(item)
-                finally:
-                    binding.close()
-                scope.bind(name, Sequence(values))
+                scope.bind(name, (yield from _read_sequence(binding, scope)))
             if self._predicate is not None:
                 if not (yield from _read_effective_boolean(self._predicate, scope)):
                     return None

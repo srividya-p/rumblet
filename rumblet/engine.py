@@ -1,7 +1,8 @@
 """Parse a query, run its iterator, and collect the result sequence."""
 
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 
+from rumblet.builtins import BUILTIN_FUNCTIONS
 from rumblet.errors import DynamicError, StaticError
 from rumblet.parser import (
     ArithmeticChainExpr,
@@ -12,6 +13,7 @@ from rumblet.parser import (
     EmptySequenceExpr,
     Expr,
     ForExpr,
+    FunctionCallExpr,
     IfExpr,
     InstanceOfExpr,
     LetExpr,
@@ -28,6 +30,7 @@ from rumblet.runtime import (
     ComparisonIterator,
     EmptySequenceIterator,
     ForIterator,
+    FunctionCallIterator,
     IfIterator,
     InstanceOfIterator,
     LetIterator,
@@ -35,15 +38,18 @@ from rumblet.runtime import (
     LogicalIterator,
     ObjectIterator,
     RuntimeIterator,
+    StaticFunction,
     VariableIterator,
 )
 from rumblet.sequence import Sequence
 
 
-def _build_iterator(node: Expr) -> RuntimeIterator:
+def _build_iterator(node: Expr, *,
+                    functions: Mapping[str, StaticFunction] | None = None) -> RuntimeIterator:
     """Build child iterators before their parents using an explicit stack."""
+    functions = {} if functions is None else functions
     bound_names = frozenset()
-    frames = [(_iterator_frame(node, bound_names), bound_names)]
+    frames = [(_iterator_frame(node, bound_names, functions), bound_names)]
     result: RuntimeIterator | None = None
     while True:
         frame, bound_names = frames[-1]
@@ -57,7 +63,7 @@ def _build_iterator(node: Expr) -> RuntimeIterator:
         else:
             if isinstance(child, tuple):
                 child, bound_names = child
-            frames.append((_iterator_frame(child, bound_names), bound_names))
+            frames.append((_iterator_frame(child, bound_names, functions), bound_names))
             result = None
 
 
@@ -71,13 +77,25 @@ def _build_children(nodes: tuple[Expr, ...]) -> _BuildFrame[tuple[RuntimeIterato
     return tuple(children)
 
 
-def _iterator_frame(node: Expr, bound_names: frozenset[str]) -> _BuildFrame[RuntimeIterator]:
+def _iterator_frame(node: Expr, bound_names: frozenset[str],
+                    functions: Mapping[str, StaticFunction]) -> _BuildFrame[RuntimeIterator]:
     if isinstance(node, EmptySequenceExpr):
         return EmptySequenceIterator()
     if isinstance(node, VariableRefExpr):
         if node.name not in bound_names:
             raise StaticError(f"unbound variable: ${node.name}")
         return VariableIterator(node.name)
+    if isinstance(node, FunctionCallExpr):
+        if node.name in BUILTIN_FUNCTIONS:
+            if len(node.arguments) != 1:
+                raise StaticError(f"{node.name} expects exactly one argument")
+            function = BUILTIN_FUNCTIONS[node.name]
+        elif node.name in functions:
+            function = functions[node.name]
+        else:
+            raise StaticError(f"unknown function: {node.name}")
+        arguments = yield from _build_children(node.arguments)
+        return FunctionCallIterator(function, arguments)
     if isinstance(node, ForExpr):
         source = yield node.source
         bound_names = bound_names | {node.name}
@@ -137,11 +155,13 @@ def _iterator_frame(node: Expr, bound_names: frozenset[str]) -> _BuildFrame[Runt
     return LiteralIterator(node.value)
 
 
-def evaluate(expression: str) -> Sequence:
+def evaluate(expression: str, *,
+             functions: Mapping[str, StaticFunction] | None = None) -> Sequence:
+    """Evaluate a query with optional named callables taking and returning sequences."""
     node = parse(expression)
     values = []
     try:
-        iterator = _build_iterator(node)
+        iterator = _build_iterator(node, functions=functions)
         iterator.open()
         try:
             while True:

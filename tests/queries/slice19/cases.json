@@ -1,0 +1,90 @@
+{
+  "summary": "Resolve static calls before evaluation, pass argument sequences in left-to-right order, and provide count, head, tail, exists, and empty.",
+  "cases": [
+    {
+      "expr": "count((1, 2, 2)), count(()), count([1, 2]), count(null)",
+      "exit_code": 0,
+      "stdout": "3\n0\n1\n1\n",
+      "stderr": ""
+    },
+    {
+      "expr": "head((null, 2)), tail((0, 2, 2, 1))",
+      "exit_code": 0,
+      "stdout": "null\n2\n2\n1\n",
+      "stderr": ""
+    },
+    {
+      "expr": "head(()), tail(()), tail(null)",
+      "exit_code": 0,
+      "stdout": "()\n",
+      "stderr": ""
+    },
+    {
+      "expr": "exists(null), exists(()), empty(()), empty([]), empty(false)",
+      "exit_code": 0,
+      "stdout": "true\nfalse\ntrue\nfalse\nfalse\n",
+      "stderr": ""
+    },
+    {
+      "expr": "let $seq := (1, 2, 3) return count(tail($seq))",
+      "exit_code": 0,
+      "stdout": "2\n",
+      "stderr": ""
+    },
+    {
+      "expr": "if (false) then head() else 42",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: head expects exactly one argument\n"
+    },
+    {
+      "expr": "count(1 div 0, 2)",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: count expects exactly one argument\n"
+    },
+    {
+      "expr": "missing()",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: unknown function: missing\n"
+    },
+    {
+      "expr": "if (false) then missing(1, 2) else 42",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: unknown function: missing\n"
+    },
+    {
+      "expr": "missing(1,)",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n"
+    },
+    {
+      "expr": "gather (mark((1, 2)), mark(()), mark(null), zero())",
+      "registered": true,
+      "stdout": "1\n2\nnull\n0\n",
+      "calls": [["mark", [[1, 2]]], ["mark", [[]]], ["mark", [[null]]], ["zero", []], ["gather", [[1, 2], [], [null], [0]]]]
+    },
+    {
+      "expr": "for $x in (3,4) return gather($x, $x + 1)",
+      "registered": true,
+      "stdout": "3\n4\n4\n5\n",
+      "calls": [["gather", [[3], [4]]], ["gather", [[4], [5]]]]
+    },
+    {
+      "expr": "gather(mark(1), 1 div 0, mark(3))",
+      "registered": true,
+      "stdout": "",
+      "dynamic_error": "division or remainder by zero",
+      "calls": [["mark", [[1]]]]
+    },
+    {
+      "expr": "gather()",
+      "registered": true,
+      "stdout": "()\n",
+      "calls": [["gather", []]]
+    }
+  ]
+}

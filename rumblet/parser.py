@@ -94,18 +94,25 @@ class ArrayExpr:
     elements: tuple[Expr, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class FunctionCallExpr:
+    name: str
+    arguments: tuple[Expr, ...]
+
+
 Expr = (
     LiteralExpr | EmptySequenceExpr | ArithmeticExpr | ArithmeticChainExpr | LogicalExpr
     | ComparisonExpr | InstanceOfExpr | IfExpr | CommaExpr | ObjectExpr | ArrayExpr
-    | VariableRefExpr | LetExpr | ForExpr
+    | VariableRefExpr | LetExpr | ForExpr | FunctionCallExpr
 )
 
 type _ParseFrame = Generator[_ParseFrame, Expr | None, Expr]
 
+_IDENTIFIER = r'[a-zA-Z_][a-zA-Z_0-9]*'
 _TOKEN = re.compile(
     r'[ \t\r\n]+|"(?:[^"\\]|\\[\s\S])*"|'
     r'[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|'
-    r':=|\$?[a-zA-Z_][a-zA-Z_0-9]*|[\s\S]'
+    rf':=|\$?{_IDENTIFIER}|[\s\S]'
 )
 
 
@@ -322,7 +329,23 @@ class _Parser:
                 raise StaticError("expected a closing parenthesis")
             self.advance()
             return node
-        return _parse_literal(self.advance())
+        token = self.advance()
+        if self.current == "(" and re.fullmatch(_IDENTIFIER, token):
+            return (yield from self.function_call(token))
+        return _parse_literal(token)
+
+    def function_call(self, name: str) -> _ParseFrame:
+        self.advance()
+        arguments = []
+        if self.current != ")":
+            arguments.append((yield self.expr_single()))
+            while self.current == ",":
+                self.advance()
+                arguments.append((yield self.expr_single()))
+        if self.current != ")":
+            raise StaticError("expected ')' after function arguments")
+        self.advance()
+        return FunctionCallExpr(name, tuple(arguments))
 
     def object_constructor(self) -> _ParseFrame:
         self.advance()
