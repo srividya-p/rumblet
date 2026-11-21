@@ -5,6 +5,7 @@ import json
 import re
 from collections.abc import Generator, Iterator
 from dataclasses import dataclass
+from itertools import groupby
 
 from rumblet.errors import StaticError
 from rumblet.values import NULL, AtomicValue, BooleanValue, NumberValue, StringValue
@@ -157,49 +158,51 @@ class _Parser:
         return CommaExpr(tuple(operands))
 
     def expr_single(self) -> _ParseFrame:
-        if self.current == "for":
-            return (yield from self.for_expr())
-        if self.current == "let":
-            return (yield from self.let_expr())
+        if self.current in ("for", "let"):
+            return (yield from self.flwor_expr())
         if self.current == "if":
             return (yield from self.conditional())
         return (yield from self.or_expr())
-
-    def for_expr(self) -> _ParseFrame:
-        self.advance()
-        name = self.variable_name("for")
-        if self.current != "in":
-            raise StaticError("expected 'in' after for variable")
-        self.advance()
-        source = yield self.expr_single()
-        where_expr = yield from self.optional_where()
-        if self.current != "return":
-            raise StaticError("expected 'return' after for clause")
-        self.advance()
-        return_expr = yield self.expr_single()
-        return ForExpr(name, source, return_expr, where_expr)
 
     def variable_name(self, clause: str) -> str:
         if not self.current.startswith("$") or self.current == "$":
             raise StaticError(f"expected a variable name after '{clause}'")
         return self.advance()[1:]
 
-    def let_expr(self) -> _ParseFrame:
-        bindings = []
-        while self.current == "let":
-            self.advance()
-            name = self.variable_name("let")
-            if self.current != ":=":
+    def flwor_expr(self) -> _ParseFrame:
+        clauses = []
+        while self.current in ("for", "let"):
+            kind = self.advance()
+            name = self.variable_name(kind)
+            if kind == "for" and self.current != "in":
+                raise StaticError("expected 'in' after for variable")
+            if kind == "let" and self.current != ":=":
                 raise StaticError("expected ':=' after let variable")
             self.advance()
             binding = yield self.expr_single()
-            bindings.append((name, binding))
+            clauses.append((kind, name, binding))
         where_expr = yield from self.optional_where()
         if self.current != "return":
-            raise StaticError("expected 'return' after let clauses")
+            if all(kind == "let" for kind, _, _ in clauses):
+                raise StaticError("expected 'return' after let clauses")
+            if len(clauses) == 1:
+                raise StaticError("expected 'return' after for clause")
+            raise StaticError("expected 'return' after FLWOR clauses")
         self.advance()
-        return_expr = yield self.expr_single()
-        return LetExpr(tuple(bindings), return_expr, where_expr)
+        result = yield self.expr_single()
+
+        # Lower the clause chain from right to left. Only the innermost
+        # clause sees the complete tuple, so it owns the where predicate.
+        for kind, group in groupby(reversed(clauses), key=lambda clause: clause[0]):
+            if kind == "let":
+                bindings = [(name, binding) for _, name, binding in group]
+                result = LetExpr(tuple(reversed(bindings)), result, where_expr)
+                where_expr = None
+            else:
+                for _, name, source in group:
+                    result = ForExpr(name, source, result, where_expr)
+                    where_expr = None
+        return result
 
     def optional_where(self) -> Generator[_ParseFrame, Expr | None, Expr | None]:
         if self.current == "where":

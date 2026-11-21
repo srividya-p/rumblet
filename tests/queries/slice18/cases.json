@@ -1,0 +1,23 @@
+{
+  "summary": "Evaluate full FLWOR clause chains with nested for iteration, successive let bindings, and an optional where filter on complete tuples.",
+  "cases": [
+    {
+      "expr": "for $team in (\"a\",\"b\") for $score in (1,2,3) where $score gt 1 and ($team eq \"a\" or $score eq 3) return {\"team\":$team,\"scores\":[$score,$score * 10]}",
+      "stdout": "{\"scores\":[2,20],\"team\":\"a\"}\n{\"scores\":[3,30],\"team\":\"a\"}\n{\"scores\":[3,30],\"team\":\"b\"}\n"
+    },
+    {
+      "expr": "let $bases := (2,4) for $base in $bases let $offsets := (1,2) for $offset in $offsets let $total := $base + $offset where $total ge 5 return [{\"total\":$total},[$base,$offset]]",
+      "stdout": "[{\"total\":5},[4,1]]\n[{\"total\":6},[4,2]]\n"
+    },
+    {
+      "expr": "for $x in (1,2) let $original := $x let $tags := if ($x eq 1) then (\"low\",\"first\") else \"high\" for $tag in $tags let $x := $x * 10 return {\"tag\":$tag,\"values\":[$original,$x]}",
+      "stdout": "{\"tag\":\"low\",\"values\":[1,10]}\n{\"tag\":\"first\",\"values\":[1,10]}\n{\"tag\":\"high\",\"values\":[2,20]}\n"
+    },
+    {"expr": "for $x in (1,2) for $y in (if ($x eq 1) then () else (2,3)) return ($x,$y)", "stdout": "2\n2\n2\n3\n"},
+    {"expr": "for $x in () let $y := 1 div 0 where $y return $x", "stdout": "()\n"},
+    {"expr": "for $x in (1,2) let $y := $x + 1 where $y eq 3 return ($x,$y)", "stdout": "2\n3\n"},
+    {"expr": "for $x in 1 let $y := 1 div 0 where false return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] DynamicError: division or remainder by zero\n"},
+    {"expr": "let $x := $y for $y in 1 return $x", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: unbound variable: $y\n"},
+    {"expr": "for $x in 1 where true let $y := 2 return $y", "stdout": "", "exit_code": 2, "stderr": "[rumblet] StaticError: expected 'return' after for clause\n"}
+  ]
+}

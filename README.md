@@ -28,10 +28,9 @@ $ python -m rumblet run --expr '1 + 2, null'
 null
 ```
 
-The CLI accepts inline expressions through `run --expr`, including variable
-references, `let` clauses, and single-clause `for` expressions. Both `for` and
-`let` support an optional `where` clause. File input, mixed `for`/`let` clause
-chains, and function calls are pending.
+The CLI accepts inline expressions through `run --expr`, including FLWOR
+expressions with mixed `for` and `let` clauses and an optional `where`.
+File input and function calls are pending.
 
 ## Slices 00–04: foundations
 
@@ -359,4 +358,29 @@ $ python -m rumblet run --expr 'let $x := (1,2) let $keep := true where $keep re
 
 $ python -m rumblet run --expr 'for $x in (1,2) where () return 1 div 0'
 ()
+```
+
+## Slice 18: full FLWOR expressions
+
+Per §§5 and 12, a FLWOR expression starts with `for` or `let` and accepts
+any mix of those clauses before an optional `where` and a required `return`.
+Each `for` iterates its input for every tuple produced by the preceding
+clauses. Each `let` binds its full sequence once per incoming tuple. Later
+clauses can reference earlier bindings. The `where` clause filters complete
+tuples, and the return sequences are concatenated in iteration order.
+
+```bash
+$ python -m rumblet run --expr 'for $team in ("a","b") for $score in (1,2,3) where $score gt 1 and ($team eq "a" or $score eq 3) return {"team":$team,"scores":[$score,$score * 10]}'
+{"scores":[2,20],"team":"a"}
+{"scores":[3,30],"team":"a"}
+{"scores":[3,30],"team":"b"}
+
+$ python -m rumblet run --expr 'let $bases := (2,4) for $base in $bases let $offsets := (1,2) for $offset in $offsets let $total := $base + $offset where $total ge 5 return [{"total":$total},[$base,$offset]]'
+[{"total":5},[4,1]]
+[{"total":6},[4,2]]
+
+$ python -m rumblet run --expr 'for $x in (1,2) let $original := $x let $tags := if ($x eq 1) then ("low","first") else "high" for $tag in $tags let $x := $x * 10 return {"tag":$tag,"values":[$original,$x]}'
+{"tag":"low","values":[1,10]}
+{"tag":"first","values":[1,10]}
+{"tag":"high","values":[2,20]}
 ```
