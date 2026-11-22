@@ -1,0 +1,6 @@
+for $x in (1, 2)
+let $original := $x
+let $tags := if ($x eq 1) then ("low", "first") else "high"
+for $tag in $tags
+let $x := $x * 10
+return {"tag": $tag, "values": [$original, $x]}

@@ -28,8 +28,18 @@ $ python -m rumblet run --expr '1 + 2, null'
 null
 ```
 
-The CLI accepts inline expressions through `run --expr`, including FLWOR
-expressions with mixed `for` and `let` clauses and an optional `where`.
+Use `run --expr` for inline queries or `run --file PATH` to read one query
+from a UTF-8 file. Query files can span multiple lines and use the `.rq`
+extension by convention. The same query is available in [examples/basic.rq](examples/basic.rq).
+
+```bash
+$ python -m rumblet run --file examples/basic.rq
+3
+null
+```
+
+Both the query file path and any relative paths
+passed to `json-file` are resolved from the current working directory.
 The CLI also supports the built-in sequence functions `count`, `head`,
 `tail`, `exists`, and `empty`, plus `json-file` for loading JSON data.
 
@@ -376,16 +386,16 @@ surrounding scope and can shadow them locally. Resetting a partially consumed
 plan restarts nested iteration while preserving caller-owned bindings.
 
 ```bash
-$ python -m rumblet run --expr 'for $team in ("a","b") for $score in (1,2,3) where $score gt 1 and ($team eq "a" or $score eq 3) return {"team":$team,"scores":[$score,$score * 10]}'
+$ python -m rumblet run --file examples/slice18/team-scores.rq
 {"scores":[2,20],"team":"a"}
 {"scores":[3,30],"team":"a"}
 {"scores":[3,30],"team":"b"}
 
-$ python -m rumblet run --expr 'let $bases := (2,4) for $base in $bases let $offsets := (1,2) for $offset in $offsets let $total := $base + $offset where $total ge 5 return [{"total":$total},[$base,$offset]]'
+$ python -m rumblet run --file examples/slice18/base-offsets.rq
 [{"total":5},[4,1]]
 [{"total":6},[4,2]]
 
-$ python -m rumblet run --expr 'for $x in (1,2) let $original := $x let $tags := if ($x eq 1) then ("low","first") else "high" for $tag in $tags let $x := $x * 10 return {"tag":$tag,"values":[$original,$x]}'
+$ python -m rumblet run --file examples/slice18/tagged-values.rq
 {"tag":"low","values":[1,10]}
 {"tag":"first","values":[1,10]}
 {"tag":"high","values":[2,20]}
@@ -394,17 +404,17 @@ $ python -m rumblet run --expr 'for $x in (1,2) let $original := $x let $tags :=
 These examples nest a FLWOR in `return`, a `let` initializer, and a `for` input.
 
 ```bash
-$ python -m rumblet run --expr 'for $base in (2,4) return for $n in (1,2,3) where $n lt $base return {"base":$base,"pair":[$n,$base * $n]}'
+$ python -m rumblet run --file examples/slice18/nested-return.rq
 {"base":2,"pair":[1,2]}
 {"base":4,"pair":[1,4]}
 {"base":4,"pair":[2,8]}
 {"base":4,"pair":[3,12]}
 
-$ python -m rumblet run --expr 'for $base in (2,4) let $rows := for $n in (1,3) where $n lt $base return [ $base, $n ] where $base gt 2 return $rows'
+$ python -m rumblet run --file examples/slice18/nested-let.rq
 [4,1]
 [4,3]
 
-$ python -m rumblet run --expr 'let $x := 5 for $row in for $x in ($x,$x + 1) return [$x,$x * 2] return {"outer":$x,"row":$row}'
+$ python -m rumblet run --file examples/slice18/nested-for-input.rq
 {"outer":5,"row":[5,10]}
 {"outer":5,"row":[6,12]}
 ```

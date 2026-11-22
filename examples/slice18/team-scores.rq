@@ -1,0 +1,4 @@
+for $team in ("a", "b")
+for $score in (1, 2, 3)
+where $score gt 1 and ($team eq "a" or $score eq 3)
+return {"team": $team, "scores": [$score, $score * 10]}

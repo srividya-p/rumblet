@@ -1,0 +1,7 @@
+let $bases := (2, 4)
+for $base in $bases
+let $offsets := (1, 2)
+for $offset in $offsets
+let $total := $base + $offset
+where $total ge 5
+return [{"total": $total}, [$base, $offset]]

@@ -1,0 +1,29 @@
+{
+  "summary": "Multiline query files used by the Slice 18 README examples.",
+  "cases": [
+    {
+      "file": "examples/slice18/team-scores.rq",
+      "stdout": "{\"scores\":[2,20],\"team\":\"a\"}\n{\"scores\":[3,30],\"team\":\"a\"}\n{\"scores\":[3,30],\"team\":\"b\"}\n"
+    },
+    {
+      "file": "examples/slice18/base-offsets.rq",
+      "stdout": "[{\"total\":5},[4,1]]\n[{\"total\":6},[4,2]]\n"
+    },
+    {
+      "file": "examples/slice18/tagged-values.rq",
+      "stdout": "{\"tag\":\"low\",\"values\":[1,10]}\n{\"tag\":\"first\",\"values\":[1,10]}\n{\"tag\":\"high\",\"values\":[2,20]}\n"
+    },
+    {
+      "file": "examples/slice18/nested-return.rq",
+      "stdout": "{\"base\":2,\"pair\":[1,2]}\n{\"base\":4,\"pair\":[1,4]}\n{\"base\":4,\"pair\":[2,8]}\n{\"base\":4,\"pair\":[3,12]}\n"
+    },
+    {
+      "file": "examples/slice18/nested-let.rq",
+      "stdout": "[4,1]\n[4,3]\n"
+    },
+    {
+      "file": "examples/slice18/nested-for-input.rq",
+      "stdout": "{\"outer\":5,\"row\":[5,10]}\n{\"outer\":5,\"row\":[6,12]}\n"
+    }
+  ]
+}

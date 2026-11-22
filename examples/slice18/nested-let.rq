@@ -1,0 +1,7 @@
+for $base in (2, 4)
+let $rows :=
+  for $n in (1, 3)
+  where $n lt $base
+  return [$base, $n]
+where $base gt 2
+return $rows

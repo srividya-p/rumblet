@@ -1,0 +1,5 @@
+for $base in (2, 4)
+return
+  for $n in (1, 2, 3)
+  where $n lt $base
+  return {"base": $base, "pair": [$n, $base * $n]}
