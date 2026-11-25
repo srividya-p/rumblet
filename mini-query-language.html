@@ -80,7 +80,7 @@
   <div class="status">
     <p>
       This document defines a small query language over the Mini Data Model.
-      It is intentionally limited to literals, object and array constructors,
+      It is intentionally limited to literals, object and array constructors and lookups,
       arithmetic, boolean logic, value comparison, restricted FLWOR expressions,
       instance tests, comma expressions, static function calls, and conditionals.
     </p>
@@ -153,7 +153,8 @@ NotExpr       ::= "not" "(" Expr ")" | ComparisonExpr
 ComparisonExpr ::= AdditiveExpr (ValueComp AdditiveExpr | "instance" "of" TypeName)?
 AdditiveExpr  ::= MultiplicativeExpr (("+" | "-") MultiplicativeExpr)*
 MultiplicativeExpr ::= UnaryExpr (("*" | "div" | "mod") UnaryExpr)*
-UnaryExpr     ::= ("+" | "-")* PrimaryExpr
+UnaryExpr     ::= ("+" | "-")* PostfixExpr
+PostfixExpr   ::= PrimaryExpr ("." (VarName | StringLiteral) | "[" Expr "]")*
 PrimaryExpr   ::= Literal | VarRef | ObjectConstructor | ArrayConstructor
                 | FunctionCall | ParenthesizedExpr
 ValueComp     ::= "eq" | "ne" | "lt" | "le" | "gt" | "ge"
@@ -232,6 +233,66 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
     <span class="rfc2119">must</span> produce exactly one value. The order of
     member expressions is the order of members in the array.
   </p>
+
+  <h3 id="navigation">7.3 Navigation</h3>
+
+  <p>
+    Object and array lookups are postfix expressions. They apply from left to
+    right and bind more tightly than unary operators. Each lookup first
+    evaluates its input expression. If the input produces an empty sequence,
+    the lookup returns the empty sequence without evaluating an index
+    expression. Otherwise, the input
+    <span class="rfc2119">must</span> produce exactly one value of the kind
+    required by the lookup. Any other input is a dynamic error.
+  </p>
+
+  <p>
+    An object lookup requires an object. A name after the dot denotes that
+    literal pair name, using the same spelling rules as <code>VarName</code>.
+    A string literal after the dot denotes its decoded string value. Pair
+    names are matched exactly and are case-sensitive.
+  </p>
+
+  <p>
+    An array lookup requires an array. The expression inside the brackets
+    <span class="rfc2119">must</span> produce exactly one number with a whole
+    value. Any other index result is a dynamic error. Array positions are
+    zero-based, with the first member at position <code>0</code>.
+  </p>
+
+  <p>
+    A lookup returns a sequence containing the selected value, including when
+    the value is <code>null</code>. A missing pair name or an array index
+    outside the array's positions, including a negative index, returns the
+    empty sequence.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Expression</th>
+        <th>Serialized result</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>{"members":[{"first name":"Ada"}]}.members[0]."first name"</code></td>
+        <td><code>"Ada"</code></td>
+      </tr>
+      <tr>
+        <td><code>[10, 20][0 + 1]</code></td>
+        <td><code>20</code></td>
+      </tr>
+      <tr>
+        <td><code>{"value":null}.missing[0]</code></td>
+        <td><code>()</code></td>
+      </tr>
+      <tr>
+        <td><code>{"value":null}.value</code></td>
+        <td><code>null</code></td>
+      </tr>
+    </tbody>
+  </table>
 
   <h2>8 Variables</h2>
 
@@ -362,7 +423,7 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
     This language has no modules, declarations, namespaces, XML nodes, path
     expressions, attributes, comments, processing instructions, text
     constructors, string constructors, dynamic function calls, inline functions,
-    higher-order functions, maps distinct from objects, lookup operators, order
+    higher-order functions, maps distinct from objects, order
     by, group by, count, window clauses, quantified expressions, switch,
     typeswitch, cast, castable, treat, try/catch, validation, updates, collation,
     or schema awareness.
