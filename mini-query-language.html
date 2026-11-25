@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mini Query Language</title>
+  <style>
+    body {
+      color: #222;
+      font-family: sans-serif;
+      line-height: 1.45;
+      margin: 0 auto;
+      max-width: 56em;
+      padding: 2em;
+    }
+
+    h1, h2, h3 {
+      color: #005a9c;
+      font-weight: 400;
+    }
+
+    h1 {
+      border-bottom: 1px solid #ccc;
+      font-size: 220%;
+      margin-bottom: .2em;
+    }
+
+    h2 {
+      border-bottom: 1px solid #ccc;
+      margin-top: 1.6em;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 1em 0;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid #bbb;
+      padding: .45em .6em;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f2f2f2;
+    }
+
+    code, pre {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    pre {
+      background: #f7f7f7;
+      border: 1px solid #ddd;
+      overflow: auto;
+      padding: 1em;
+    }
+
+    .status {
+      background: #f7f7f7;
+      border: 1px solid #ddd;
+      padding: 1em;
+    }
+
+    .note {
+      border-left: .35em solid #005a9c;
+      margin: 1em 0;
+      padding: .2em 1em;
+    }
+
+    .rfc2119 {
+      font-variant: small-caps;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mini Query Language</h1>
+
+  <p><strong>Student Project Draft</strong></p>
+
+  <div class="status">
+    <p>
+      This document defines a small query language over the Mini Data Model.
+      It is intentionally limited to literals, object and array constructors,
+      arithmetic, boolean logic, value comparison, restricted FLWOR expressions,
+      instance tests, comma expressions, static function calls, and conditionals.
+    </p>
+  </div>
+
+  <h2>Abstract</h2>
+
+  <p>
+    The Mini Query Language is an expression language whose values are strings,
+    numbers, booleans, null, objects, and arrays. It is a small subset inspired
+    by XQuery 3.1, suitable for spec-driven student implementations.
+  </p>
+
+  <h2>1 Introduction</h2>
+
+  <p>
+    A query consists of one expression. Evaluating an expression produces a
+    sequence of values. A value is one of the six value kinds defined by the Mini
+    Data Model.
+  </p>
+
+  <h2>2 Conformance</h2>
+
+  <p>
+    The keywords <span class="rfc2119">must</span>,
+    <span class="rfc2119">must not</span>, <span class="rfc2119">should</span>,
+    and <span class="rfc2119">may</span> are to be interpreted as described in
+    RFC 2119.
+  </p>
+
+  <p>
+    A conforming implementation <span class="rfc2119">must</span> implement
+    every expression kind in this specification and
+    <span class="rfc2119">must not</span> require any feature excluded in
+    Section 16.
+  </p>
+
+  <h2>3 Data Model</h2>
+
+  <p>
+    The only values are strings, numbers, booleans, null, objects, and arrays.
+    Expression results are sequences of zero or more values. A sequence is not a
+    value and cannot appear inside an object or array.
+  </p>
+
+  <h2>4 Errors</h2>
+
+  <p>
+    An implementation <span class="rfc2119">must</span> report a static error
+    when an expression is not syntactically valid or refers to an unbound
+    variable or unknown function. It <span class="rfc2119">must</span> report a
+    dynamic error when an operation receives a value of the wrong kind.
+  </p>
+
+  <h2>5 Grammar Summary</h2>
+
+  <pre><code>Expr          ::= CommaExpr
+CommaExpr     ::= ExprSingle ("," ExprSingle)*
+ExprSingle    ::= FLWORExpr | IfExpr | OrExpr
+FLWORExpr     ::= InitialClause Clause* WhereClause? "return" ExprSingle
+InitialClause ::= ForClause | LetClause
+Clause        ::= ForClause | LetClause
+ForClause     ::= "for" VarName "in" ExprSingle
+LetClause     ::= "let" VarName ":=" ExprSingle
+WhereClause   ::= "where" ExprSingle
+IfExpr        ::= "if" "(" Expr ")" "then" ExprSingle "else" ExprSingle
+OrExpr        ::= AndExpr ("or" AndExpr)*
+AndExpr       ::= NotExpr ("and" NotExpr)*
+NotExpr       ::= "not" "(" Expr ")" | ComparisonExpr
+ComparisonExpr ::= AdditiveExpr (ValueComp AdditiveExpr | "instance" "of" TypeName)?
+AdditiveExpr  ::= MultiplicativeExpr (("+" | "-") MultiplicativeExpr)*
+MultiplicativeExpr ::= UnaryExpr (("*" | "div" | "mod") UnaryExpr)*
+UnaryExpr     ::= ("+" | "-")* PrimaryExpr
+PrimaryExpr   ::= Literal | VarRef | ObjectConstructor | ArrayConstructor
+                | FunctionCall | ParenthesizedExpr
+ValueComp     ::= "eq" | "ne" | "lt" | "le" | "gt" | "ge"
+TypeName      ::= "string" | "number" | "boolean" | "null" | "object" | "array"
+ObjectConstructor ::= "{" (StringLiteral ":" ExprSingle
+                      ("," StringLiteral ":" ExprSingle)*)? "}"
+ArrayConstructor  ::= "[" (ExprSingle ("," ExprSingle)*)? "]"
+FunctionCall  ::= FunctionName "(" (ExprSingle ("," ExprSingle)*)? ")"
+ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
+
+  <h2>6 Literals</h2>
+
+  <p>
+    Literal expressions produce one atomic value. The literal kinds are string,
+    number, boolean, and null.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Literal</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>String literal</td>
+        <td>A string value.</td>
+      </tr>
+      <tr>
+        <td>Number literal</td>
+        <td>A number value.</td>
+      </tr>
+      <tr>
+        <td>Boolean literal</td>
+        <td>The boolean value true or false.</td>
+      </tr>
+      <tr>
+        <td>Null literal</td>
+        <td>The null value.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>7 Constructors</h2>
+
+  <h3>7.1 Object Constructors</h3>
+
+  <p>
+    An object constructor produces one object. Each member name
+    <span class="rfc2119">must</span> be a string. Each member value expression
+    <span class="rfc2119">must</span> produce exactly one value. Duplicate member
+    names are a dynamic error.
+  </p>
+
+  <h3>7.2 Array Constructors</h3>
+
+  <p>
+    An array constructor produces one array. Each element expression
+    <span class="rfc2119">must</span> produce exactly one value. The order of
+    element expressions is the order of elements in the array.
+  </p>
+
+  <h2>8 Variables</h2>
+
+  <p>
+    A variable reference returns the sequence bound to that variable. Variables
+    are introduced only by for and let clauses. Referring to an unbound variable
+    is a static error.
+  </p>
+
+  <h2>9 Arithmetic</h2>
+
+  <p>
+    Arithmetic operators are addition, subtraction, multiplication, division,
+    and remainder. Each operand <span class="rfc2119">must</span> be a sequence
+    containing exactly one number. The result is one number.
+  </p>
+
+  <h2>10 Logic</h2>
+
+  <p>
+    The logical operators are and, or, and not. Each operand
+    <span class="rfc2119">must</span> have an effective boolean value. The result
+    is one boolean.
+  </p>
+
+  <p>
+    The effective boolean value of an empty sequence is false. The effective
+    boolean value of a single boolean is that boolean. All other effective
+    boolean values are dynamic errors.
+  </p>
+
+  <h2>11 Value Comparison</h2>
+
+  <p>
+    Value comparison operators are eq, ne, lt, le, gt, and ge. Each operand
+    <span class="rfc2119">must</span> be a sequence containing exactly one
+    atomic value. Equality and inequality are defined for all atomic values.
+    Ordering comparisons are defined only for two numbers or two strings.
+  </p>
+
+  <h2>12 FLWOR Expressions</h2>
+
+  <p>
+    A for expression binds a variable once for each value in its input sequence
+    and concatenates the results of evaluating its return expression.
+  </p>
+
+  <p>
+    A let expression binds a variable to the entire sequence produced by its
+    binding expression and evaluates its return expression once.
+  </p>
+
+  <p>
+    A where clause filters a tuple. The tuple is kept only when the where
+    expression has the effective boolean value true.
+  </p>
+
+  <h2>13 Instance Tests</h2>
+
+  <p>
+    An instance test has one of the six builtin type names: string, number,
+    boolean, null, object, or array. The input sequence
+    <span class="rfc2119">must</span> contain exactly one value. The result is
+    true if that value has the named kind, otherwise false.
+  </p>
+
+  <h2>14 Function Calls</h2>
+
+  <p>
+    A static function call names a function known during static analysis.
+    Arguments are evaluated from left to right and passed as sequences. Calling
+    an unknown function is a static error.
+  </p>
+
+  <p>
+    This specification does not define a standard function library. A conforming
+    implementation <span class="rfc2119">may</span> provide implementation-defined
+    functions.
+  </p>
+
+  <h2>15 Conditional Expressions</h2>
+
+  <p>
+    A conditional expression evaluates its test expression. If the effective
+    boolean value is true, it evaluates the then expression; otherwise, it
+    evaluates the else expression. Only the selected branch is evaluated.
+  </p>
+
+  <h2>16 Excluded Features</h2>
+
+  <p>
+    This language has no modules, declarations, namespaces, XML nodes, path
+    expressions, attributes, comments, processing instructions, text
+    constructors, string constructors, dynamic function calls, inline functions,
+    higher-order functions, maps distinct from objects, lookup operators, order
+    by, group by, count, window clauses, quantified expressions, switch,
+    typeswitch, cast, castable, treat, try/catch, validation, updates, collation,
+    serialization rules, or schema awareness.
+  </p>
+
+  <div class="note">
+    <p>
+      This specification is intended to pair with the Mini Data Model. The data
+      model defines what values exist; this language defines a small set of ways
+      to construct, combine, test, and select those values.
+    </p>
+  </div>
+</body>
+</html>

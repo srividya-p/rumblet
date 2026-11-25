@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mini Data Model</title>
+  <style>
+    body {
+      color: #222;
+      font-family: sans-serif;
+      line-height: 1.45;
+      margin: 0 auto;
+      max-width: 56em;
+      padding: 2em;
+    }
+
+    h1, h2, h3 {
+      color: #005a9c;
+      font-weight: 400;
+    }
+
+    h1 {
+      border-bottom: 1px solid #ccc;
+      font-size: 220%;
+      margin-bottom: .2em;
+    }
+
+    h2 {
+      border-bottom: 1px solid #ccc;
+      margin-top: 1.6em;
+    }
+
+    table {
+      border-collapse: collapse;
+      margin: 1em 0;
+      width: 100%;
+    }
+
+    th, td {
+      border: 1px solid #bbb;
+      padding: .45em .6em;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f2f2f2;
+    }
+
+    .status {
+      background: #f7f7f7;
+      border: 1px solid #ddd;
+      padding: 1em;
+    }
+
+    .note {
+      border-left: .35em solid #005a9c;
+      margin: 1em 0;
+      padding: .2em 1em;
+    }
+
+    .rfc2119 {
+      font-variant: small-caps;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mini Data Model</h1>
+
+  <p><strong>Student Project Draft</strong></p>
+
+  <div class="status">
+    <p>
+      This document defines a small data model for use in teaching
+      spec-driven development. It defines only values and their properties.
+      It does not define any language, type system, schema system, storage
+      system, or interchange format.
+    </p>
+  </div>
+
+  <h2>Abstract</h2>
+
+  <p>
+    The Mini Data Model defines the set of values that may exist in a conforming
+    implementation. The model contains six kinds of values: strings, numbers,
+    booleans, null, objects, and arrays.
+  </p>
+
+  <h2>1 Introduction</h2>
+
+  <p>
+    A data model defines what information exists independently of how that
+    information is represented outside the model. This specification
+    intentionally contains only value definitions.
+  </p>
+
+  <h2>2 Conformance</h2>
+
+  <p>
+    The keywords <span class="rfc2119">must</span>,
+    <span class="rfc2119">must not</span>, <span class="rfc2119">should</span>,
+    and <span class="rfc2119">may</span> are to be interpreted as described in
+    RFC 2119.
+  </p>
+
+  <p>
+    A conforming implementation <span class="rfc2119">must</span> represent
+    every value as exactly one of the six value kinds defined in this
+    specification.
+  </p>
+
+  <h2>3 Terminology</h2>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Term</th>
+        <th>Meaning</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Value</td>
+        <td>An item of information in the data model.</td>
+      </tr>
+      <tr>
+        <td>Atomic value</td>
+        <td>A string, number, boolean, or null value.</td>
+      </tr>
+      <tr>
+        <td>Container value</td>
+        <td>An object or array value.</td>
+      </tr>
+      <tr>
+        <td>Member</td>
+        <td>A named value contained by an object.</td>
+      </tr>
+      <tr>
+        <td>Element</td>
+        <td>A value contained by an array.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4 Values</h2>
+
+  <p>
+    The universe of values consists only of strings, numbers, booleans, null,
+    objects, and arrays. No other value kind exists in this data model.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Kind</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>String</td>
+        <td>A finite sequence of Unicode scalar values.</td>
+      </tr>
+      <tr>
+        <td>Number</td>
+        <td>A finite mathematical number.</td>
+      </tr>
+      <tr>
+        <td>Boolean</td>
+        <td>One of the two truth values true and false.</td>
+      </tr>
+      <tr>
+        <td>Null</td>
+        <td>The single value representing absence.</td>
+      </tr>
+      <tr>
+        <td>Object</td>
+        <td>An unordered collection of members.</td>
+      </tr>
+      <tr>
+        <td>Array</td>
+        <td>An ordered sequence of elements.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5 Atomic Values</h2>
+
+  <h3>5.1 Strings</h3>
+
+  <p>
+    A string is a finite sequence of Unicode scalar values. Strings have length.
+    The length of a string is the number of scalar values in the sequence.
+  </p>
+
+  <p>
+    Two strings are equal if they contain the same scalar values in the same
+    order.
+  </p>
+
+  <h3>5.2 Numbers</h3>
+
+  <p>
+    A number is a finite mathematical number. This specification does not define
+    precision, rounding, overflow, underflow, negative zero, infinity, or NaN.
+  </p>
+
+  <p>
+    Two numbers are equal if they represent the same mathematical number.
+  </p>
+
+  <h3>5.3 Booleans</h3>
+
+  <p>
+    A boolean is one of two values: true or false. The two boolean values are
+    distinct.
+  </p>
+
+  <h3>5.4 Null</h3>
+
+  <p>
+    Null is a single atomic value. It has no members, elements, name, length,
+    numeric value, or truth value defined by this specification.
+  </p>
+
+  <h2>6 Objects</h2>
+
+  <p>
+    An object is an unordered collection of members. Each member has a string
+    name and a value. Within one object, member names
+    <span class="rfc2119">must</span> be unique.
+  </p>
+
+  <p>
+    The order of members in an object is not significant. Two objects are equal
+    if they have the same member names and each corresponding member has an
+    equal value.
+  </p>
+
+  <h2>7 Arrays</h2>
+
+  <p>
+    An array is an ordered sequence of zero or more values. Each element has a
+    position. Positions are significant.
+  </p>
+
+  <p>
+    Two arrays are equal if they have the same length and equal values at every
+    corresponding position.
+  </p>
+
+  <h2>8 Nesting</h2>
+
+  <p>
+    Objects and arrays may contain any value, including other objects and arrays.
+    This specification defines no maximum depth or size. An implementation
+    <span class="rfc2119">may</span> impose resource limits.
+  </p>
+
+  <h2>9 Identity</h2>
+
+  <p>
+    Values have no identity separate from their kind and content. If two values
+    have the same kind and equal content, they are the same value for purposes of
+    this data model.
+  </p>
+
+  <h2>10 Excluded Features</h2>
+
+  <p>
+      This data model has no nodes, attributes, namespaces, documents, comments,
+      processing instructions, functions, maps distinct from objects, tuples,
+      dates, times, binary values, schemas, annotations, references, pointers, or
+    user-defined value kinds.
+  </p>
+
+  <div class="note">
+    <p>
+      This specification deliberately describes only the values. A separate
+      specification may define how values are represented outside the model.
+    </p>
+  </div>
+</body>
+</html>
