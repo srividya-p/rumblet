@@ -1,7 +1,6 @@
 """The six value kinds from the Mini Data Model.
 
-Payloads use the Python standard JSON decoder's representations: str, int/float,
-bool, and None. Both integer and floating representations have JSON kind number.
+Numeric payloads use finite Python floats, which implement IEEE 754 binary64.
 These are model values, not Python truth values or query result sequences.
 """
 
@@ -42,14 +41,19 @@ class StringValue(AtomicValue):
 
 @dataclass(frozen=True, slots=True)
 class NumberValue(AtomicValue):
-    value: int | float
+    value: float
     kind: ClassVar[str] = "number"
 
     def __post_init__(self) -> None:
         if type(self.value) not in (int, float):
             raise TypeError("number content must be a JSON number")
-        if type(self.value) is float and not isfinite(self.value):
+        try:
+            number = float(self.value)
+        except OverflowError as error:
+            raise ValueError("numbers must be finite binary64 values") from error
+        if not isfinite(number):
             raise ValueError("numbers must be finite")
+        object.__setattr__(self, "value", number)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,7 +85,7 @@ class ArrayValue(Value):
 
     def __init__(self, elements: list[Value]) -> None:
         if type(elements) is not list:
-            raise TypeError("array elements must be supplied as a list of model values")
+            raise TypeError("array members must be supplied as a list of model values")
         for element in elements:
             _require_value(element)
         contents = tuple(elements)
@@ -119,12 +123,12 @@ class ObjectValue(Value):
         elif type(members) is list:
             pairs = members
         else:
-            raise TypeError("object members must be a dictionary or list of name/value pairs")
+            raise TypeError("object pairs must be a dictionary or list of name/value pairs")
         collected = {}
         for name, value in pairs:
             StringValue(name)  # Names obey the same Unicode rules as string values.
             if name in collected:
-                raise ValueError(f"duplicate object member name: {name!r}")
+                raise ValueError(f"duplicate object pair name: {name!r}")
             _require_value(value)
             collected[name] = value
         object.__setattr__(self, "_members", frozenset(collected.items()))

@@ -1,4 +1,4 @@
-"""Exercise json-file through the CLI with temporary input files."""
+"""Exercise json_file through the CLI with temporary input files."""
 
 import io
 import json

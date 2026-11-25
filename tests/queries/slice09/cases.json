@@ -1,5 +1,5 @@
 {
-  "summary": "Parse object constructors with literal string keys and require singleton member values and unique names at runtime.",
+  "summary": "Parse object constructors with literal string keys and require singleton pair values and unique names at runtime.",
   "cases": [
     {
       "expr": "{}",
@@ -34,49 +34,49 @@
     {
       "expr": "{\"a\": ()}",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: object member 'a' must contain exactly one value\n",
+      "stderr": "[rumblet] DynamicError: object pair 'a' must contain exactly one value\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },
     {
       "expr": "{\"a\": (1, 2)}",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: object member 'a' must contain exactly one value\n",
+      "stderr": "[rumblet] DynamicError: object pair 'a' must contain exactly one value\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },
     {
       "expr": "{\"a\": 1, \"a\": 2}",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: duplicate object member name: 'a'\n",
+      "stderr": "[rumblet] DynamicError: duplicate object pair name: 'a'\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },
     {
       "expr": "{\"a\": 1, \"\\u0061\": 2}",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: duplicate object member name: 'a'\n",
+      "stderr": "[rumblet] DynamicError: duplicate object pair name: 'a'\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },
     {
       "expr": "{1: 2}",
       "stdout": "",
-      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object pair name\n",
       "exit_code": 2,
       "error_type": "StaticError"
     },
     {
       "expr": "{(\"a\"): 2}",
       "stdout": "",
-      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object pair name\n",
       "exit_code": 2,
       "error_type": "StaticError"
     },
     {
       "expr": "{\"a\" 1}",
       "stdout": "",
-      "stderr": "[rumblet] StaticError: expected ':' after object member name\n",
+      "stderr": "[rumblet] StaticError: expected ':' after object pair name\n",
       "exit_code": 2,
       "error_type": "StaticError"
     },
@@ -90,14 +90,14 @@
     {
       "expr": "{\"a\": 1,}",
       "stdout": "",
-      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object pair name\n",
       "exit_code": 2,
       "error_type": "StaticError"
     },
     {
       "expr": "{\"a\": 1, 2}",
       "stdout": "",
-      "stderr": "[rumblet] StaticError: expected a string literal as an object member name\n",
+      "stderr": "[rumblet] StaticError: expected a string literal as an object pair name\n",
       "exit_code": 2,
       "error_type": "StaticError"
     }

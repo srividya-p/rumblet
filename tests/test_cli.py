@@ -42,7 +42,7 @@ class QueryFileTests(unittest.TestCase):
         with TemporaryDirectory() as directory, chdir(directory):
             Path("queries").mkdir()
             Path("queries/example").write_text(
-                'json-file("data.json"), "café"\n', encoding="utf-8"
+                'json_file("data.json"), "café"\n', encoding="utf-8"
             )
             Path("data.json").write_text("42", encoding="utf-8")
             self.assertEqual(

@@ -66,8 +66,6 @@
 <body>
   <h1>Mini Data Model</h1>
 
-  <p><strong>Student Project Draft</strong></p>
-
   <div class="status">
     <p>
       This document defines a small data model for use in teaching
@@ -131,11 +129,11 @@
         <td>An object or array value.</td>
       </tr>
       <tr>
-        <td>Member</td>
-        <td>A named value contained by an object.</td>
+        <td>Pair</td>
+        <td>A string name and value contained by an object.</td>
       </tr>
       <tr>
-        <td>Element</td>
+        <td>Member</td>
         <td>A value contained by an array.</td>
       </tr>
     </tbody>
@@ -162,7 +160,7 @@
       </tr>
       <tr>
         <td>Number</td>
-        <td>A finite mathematical number.</td>
+        <td>A finite IEEE 754 binary64 floating-point number.</td>
       </tr>
       <tr>
         <td>Boolean</td>
@@ -174,11 +172,11 @@
       </tr>
       <tr>
         <td>Object</td>
-        <td>An unordered collection of members.</td>
+        <td>An unordered collection of pairs.</td>
       </tr>
       <tr>
         <td>Array</td>
-        <td>An ordered sequence of elements.</td>
+        <td>An ordered sequence of members.</td>
       </tr>
     </tbody>
   </table>
@@ -200,12 +198,17 @@
   <h3>5.2 Numbers</h3>
 
   <p>
-    A number is a finite mathematical number. This specification does not define
-    precision, rounding, overflow, underflow, negative zero, infinity, or NaN.
+    A number is a finite IEEE 754 binary64 floating-point number. The term
+    “double precision” refers to binary64, not decimal floating point. A value
+    converted to binary64 is rounded to the nearest representable value; exact
+    halfway cases are rounded to the value whose significand is even. Underflow
+    follows IEEE 754, including subnormal values and rounding to zero. Positive
+    and negative zero compare equal. Infinity and NaN are not values in this
+    data model.
   </p>
 
   <p>
-    Two numbers are equal if they represent the same mathematical number.
+    Two numbers are equal if they represent the same numeric value.
   </p>
 
   <h3>5.3 Booleans</h3>
@@ -218,33 +221,33 @@
   <h3>5.4 Null</h3>
 
   <p>
-    Null is a single atomic value. It has no members, elements, name, length,
-    numeric value, or truth value defined by this specification.
+    Null is a single atomic value. It has no object pairs, array members, name,
+    length, numeric value, or truth value defined by this specification.
   </p>
 
   <h2>6 Objects</h2>
 
   <p>
-    An object is an unordered collection of members. Each member has a string
-    name and a value. Within one object, member names
+    An object is an unordered collection of pairs. Each pair has a string name
+    and a value. Within one object, pair names
     <span class="rfc2119">must</span> be unique.
   </p>
 
   <p>
-    The order of members in an object is not significant. Two objects are equal
-    if they have the same member names and each corresponding member has an
+    The order of pairs in an object is not significant. Two objects are equal
+    if they have the same pair names and each corresponding pair has an
     equal value.
   </p>
 
   <h2>7 Arrays</h2>
 
   <p>
-    An array is an ordered sequence of zero or more values. Each element has a
+    An array is an ordered sequence of zero or more values. Each member has a
     position. Positions are significant.
   </p>
 
   <p>
-    Two arrays are equal if they have the same length and equal values at every
+    Two arrays are equal if they have the same length and equal members at every
     corresponding position.
   </p>
 
@@ -275,8 +278,9 @@
 
   <div class="note">
     <p>
-      This specification deliberately describes only the values. A separate
-      specification may define how values are represented outside the model.
+      This specification is intended to pair with the Mini Query Language. This
+      data model defines what values exist; the query language defines a small
+      set of ways to construct, combine, test, and select those values.
     </p>
   </div>
 </body>

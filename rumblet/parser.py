@@ -112,7 +112,7 @@ _IDENTIFIER = r'[a-zA-Z_][a-zA-Z_0-9]*'
 _TOKEN = re.compile(
     r'[ \t\r\n]+|"(?:[^"\\]|\\[\s\S])*"|'
     r'[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|'
-    rf':=|json-file(?=[ \t\r\n]*\()|\$?{_IDENTIFIER}|[\s\S]'
+    rf':=|\$?{_IDENTIFIER}|[\s\S]'
 )
 
 
@@ -330,7 +330,7 @@ class _Parser:
             self.advance()
             return node
         token = self.advance()
-        if self.current == "(" and (token == "json-file" or re.fullmatch(_IDENTIFIER, token)):
+        if self.current == "(" and re.fullmatch(_IDENTIFIER, token):
             return (yield from self.function_call(token))
         return _parse_literal(token)
 
@@ -353,10 +353,10 @@ class _Parser:
         if self.current != "}":
             while True:
                 if not self.current.startswith('"'):
-                    raise StaticError("expected a string literal as an object member name")
+                    raise StaticError("expected a string literal as an object pair name")
                 name = _parse_literal(self.advance()).value.value
                 if self.current != ":":
-                    raise StaticError("expected ':' after object member name")
+                    raise StaticError("expected ':' after object pair name")
                 self.advance()
                 value = yield self.expr_single()
                 members.append((name, value))

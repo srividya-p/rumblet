@@ -1,5 +1,5 @@
 {
-  "summary": "Implemented arrays, objects with unique string names, nesting of all six value kinds, and content-based equality and hashing; array order matters and object member order does not.",
+  "summary": "Implemented arrays, objects with unique string names, nesting of all six value kinds, and content-based equality and hashing; array member order matters and object pair order does not.",
   "cases": [
     {
       "expr": "[]",

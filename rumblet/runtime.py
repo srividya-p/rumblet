@@ -483,8 +483,8 @@ class ObjectIterator(_CompositeIterator):
         members = {}
         for name, operand in self._members:
             if name in members:
-                raise DynamicError(f"duplicate object member name: {name!r}")
-            message = f"object member {name!r} must contain exactly one value"
+                raise DynamicError(f"duplicate object pair name: {name!r}")
+            message = f"object pair {name!r} must contain exactly one value"
             members[name] = yield from _read_single_value(operand, self.context, message)
         result = ObjectValue(members)
         self._emitted = True
@@ -507,7 +507,7 @@ class ArrayIterator(_CompositeIterator):
             return None
         elements = []
         for position, operand in enumerate(self._elements, start=1):
-            message = f"array element {position} must contain exactly one value"
+            message = f"array member {position} must contain exactly one value"
             element = yield from _read_single_value(operand, self.context, message)
             elements.append(element)
         result = ArrayValue(elements)
@@ -606,7 +606,7 @@ _ARITHMETIC = {
 }
 
 
-def _read_number(iterator: RuntimeIterator, context: DynamicContext) -> _Pull[int | float]:
+def _read_number(iterator: RuntimeIterator, context: DynamicContext) -> _Pull[float]:
     message = "arithmetic operands must contain exactly one number"
     iterator.open(context)
     try:

@@ -18,7 +18,7 @@
     {
       "expr": "1e+2",
       "kind": "number",
-      "stdout": "100.0\n",
+      "stdout": "100\n",
       "stderr": "",
       "exit_code": 0
     },

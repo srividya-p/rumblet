@@ -60,16 +60,16 @@ def _json_object(pairs: list[tuple[str, object]]) -> ObjectValue:
 def _json_file(sequence: Sequence) -> Sequence:
     path = next(iter(sequence), None)
     if len(sequence) != 1 or not isinstance(path, StringValue):
-        raise DynamicError("json-file expects a singleton string path")
+        raise DynamicError("json_file expects a singleton string path")
     try:
         content = Path(path.value).read_bytes()
     except (OSError, ValueError) as error:
-        raise DynamicError("json-file could not read the file") from error
+        raise DynamicError("json_file could not read the file") from error
     try:
         payload = json.loads(content.decode("utf-8"), object_pairs_hook=_json_object)
         return Sequence([_json_value(payload)])
     except (ValueError, RecursionError) as error:
-        raise DynamicError("json-file requires one UTF-8 JSON value valid in the data model") from error
+        raise DynamicError("json_file requires one UTF-8 JSON value valid in the data model") from error
 
 
 BUILTIN_FUNCTIONS = {
@@ -78,5 +78,5 @@ BUILTIN_FUNCTIONS = {
     "tail": _tail,
     "exists": _exists,
     "empty": _empty,
-    "json-file": _json_file,
+    "json_file": _json_file,
 }

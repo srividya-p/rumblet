@@ -1,5 +1,5 @@
 {
-  "summary": "Implemented immutable atomic values: Unicode strings, finite JSON-compatible numbers, booleans, and null, with kind-and-content equality.",
+  "summary": "Implemented immutable atomic values: Unicode strings, finite IEEE 754 binary64 numbers, booleans, and null, with kind-and-content equality.",
   "cases": [
     {
       "expr": "\"hello\"",
@@ -12,6 +12,18 @@
       "stdout": "1\n",
       "stderr": "",
       "exit_code": 0
+    },
+    {
+      "expr": "9007199254740993",
+      "stdout": "9007199254740992\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "1e309",
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: invalid atomic literal\n",
+      "exit_code": 2
     },
     {
       "expr": "true",

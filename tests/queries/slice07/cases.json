@@ -21,13 +21,25 @@
     },
     {
       "expr": "24 div 3 * 2 mod 5",
-      "stdout": "1.0\n",
+      "stdout": "1\n",
       "stderr": "",
       "exit_code": 0
     },
     {
       "expr": "7 div 2",
       "stdout": "3.5\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "9007199254740992 + 1",
+      "stdout": "9007199254740992\n",
+      "stderr": "",
+      "exit_code": 0
+    },
+    {
+      "expr": "-0.0",
+      "stdout": "-0.0\n",
       "stderr": "",
       "exit_code": 0
     },

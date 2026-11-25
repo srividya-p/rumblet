@@ -11,7 +11,7 @@ or newer and has no package dependencies. Run these commands from the repo root.
 ```bash
 $ python -m unittest discover -s tests -q
 ----------------------------------------------------------------------
-Ran 70 tests in 3.454s
+Ran 76 tests in 4.230s
 
 OK
 ```
@@ -39,9 +39,9 @@ null
 ```
 
 Both the query file path and any relative paths
-passed to `json-file` are resolved from the current working directory.
+passed to `json_file` are resolved from the current working directory.
 The CLI also supports the built-in sequence functions `count`, `head`,
-`tail`, `exists`, and `empty`, plus `json-file` for loading JSON data.
+`tail`, `exists`, and `empty`, plus `json_file` for loading JSON data.
 
 ## Slices 00–04: foundations
 
@@ -60,12 +60,11 @@ kind and content; separately constructed nulls represent the same model value.
 Strings reject surrogate code points and count Unicode scalar values with `len`.
 No Unicode normalization is performed.
 
-All atomic `.value` payloads are compatible with Python's standard JSON encoder
-and decoder: strings, integers or finite floats, booleans, and `None` for null.
-Integers and floats share the JSON kind `number`. Booleans are a distinct kind.
-The spec leaves numeric precision unspecified. Fractional numbers use Python's
-float precision. NaN and infinities are rejected. Model values reject implicit
-Python truth conversion. Slice 11 defines how query sequences are tested as booleans.
+Atomic `.value` payloads are strings, finite binary64 floats, booleans, and
+`None` for null. Integer inputs are rounded to binary64 using round-to-nearest,
+ties-to-even. Underflow follows IEEE 754; NaN and infinities are rejected.
+Booleans are distinct from numbers. Model values reject implicit Python truth
+conversion. Slice 11 defines how query sequences are tested as booleans.
 
 ### Slice 02: containers, nesting, and identity
 
@@ -73,10 +72,10 @@ Python truth conversion. Slice 11 defines how query sequences are tested as bool
 of string names to model values, or a list of name/value pairs to detect duplicate
 names. Duplicate names raise `ValueError`; invalid names or contents are rejected.
 Both containers accept all six model kinds, including nested arrays and objects.
-Raw Python values and query sequences cannot be used as container elements.
+Raw Python values and query sequences cannot be used as container contents.
 
 Arrays compare by position and length. Objects compare by names and corresponding
-values, ignoring member order. All six kinds compare and hash by kind and content;
+values, ignoring pair order. All six kinds compare and hash by kind and content;
 Python object identity has no model significance. Immutable internal storage
 prevents aliases from changing a value. Container `.value` properties return fresh
 JSON-compatible lists/dictionaries. Internal tuples and frozensets are storage
@@ -118,15 +117,16 @@ references with `StaticError` before execution.
 ## Slice 05: atomic literal expressions
 
 The parser produces a literal AST node. The engine runs it through
-`LiteralIterator` and collects the single result. Section 6 leaves literal
-spelling unspecified, so this slice uses JSON syntax for numbers and
-double-quoted strings, including escapes, and accepts `true`, `false`, and
-`null`. Unary signs are handled by the arithmetic grammar. Surrounding
-JSON whitespace is allowed. Malformed literals raise `StaticError`.
+`LiteralIterator` and collects the single result. Section 6 specifies JSON
+syntax for number and double-quoted string literals, including string escapes,
+and the exact spellings `true`, `false`, and `null`. Unary signs are arithmetic
+operators. Number literals are rounded to binary64; non-finite literal values
+raise `StaticError`. Surrounding JSON whitespace is allowed. Malformed literals
+raise `StaticError`.
 
 ```bash
 $ python -m rumblet run --expr 1e+2
-100.0
+100
 
 $ python -m rumblet run --expr '""'
 ""
@@ -159,10 +159,10 @@ then binary `+` and `-`. Binary operators at the same precedence associate
 left to right. Parentheses override precedence. Each operand must produce
 exactly one number.
 
-Section 9 leaves division and remainder edge cases unspecified. This slice
-uses Python true division and remainder (a nonzero remainder has the divisor's
-sign). A zero divisor or a result outside the finite number model produces a
-dynamic error.
+Division is true division. Remainder follows Python rules (a nonzero remainder
+has the divisor's sign). Operations round to binary64 using round-to-nearest,
+ties-to-even; underflow follows IEEE 754. A zero divisor or non-finite result
+produces a dynamic error.
 
 ```bash
 $ python -m rumblet run --expr '2 + 3 * 4'
@@ -197,10 +197,10 @@ null
 
 ## Slice 09: object constructors
 
-Object constructors emit one object. Member names are string literals and
-member values are single expressions. Each member expression must yield
-exactly one item. Duplicate names and member values with the wrong cardinality
-raise dynamic errors.
+Object constructors emit one object. Pair names are string literals and
+pair values are single expressions. Each pair value expression must yield
+exactly one item. Duplicate pair names and pair values with the wrong
+cardinality raise dynamic errors.
 
 ```bash
 $ python -m rumblet run --expr '{}'
@@ -212,8 +212,8 @@ $ python -m rumblet run --expr '{ "b": 1 + 2, "a": null }'
 
 ## Slice 10: array constructors
 
-Array constructors emit one array, preserving element order. Each element
-expression must yield exactly one item. Empty and multi-item element sequences
+Array constructors emit one array, preserving member order. Each member
+expression must yield exactly one item. Empty and multi-item member sequences
 raise dynamic errors. Arrays and objects can nest inside one another.
 
 ```bash
@@ -231,9 +231,9 @@ boolean has the value of that boolean. Every other sequence raises
 `DynamicError`. The `effective_boolean_value()` helper is in `rumblet.runtime`.
 
 `not(Expr)`, `and`, and `or` each produce one boolean, in descending order
-of precedence. The spec leaves operand evaluation order unspecified.
-Rumblet evaluates operands left to right and checks both operands of `and`
-and `or` when the left operand succeeds.
+of precedence. Operands are evaluated left to right. Both operands of `and`
+and `or` are always evaluated and checked, even if the left operand determines
+the result; these operators do not short-circuit.
 
 ```bash
 $ python -m rumblet run --expr 'true or false and false'
@@ -306,10 +306,9 @@ and the `return` expression evaluates once after all bindings are established.
 Later clauses can reference earlier bindings. An unbound reference raises
 `StaticError` before evaluation.
 
-The spec leaves variable name syntax and repeated bindings unspecified. Names
-use ASCII letters or underscores at the start, followed by ASCII letters,
-digits, or underscores, immediately after `$`. A later binding of the same
-name shadows the earlier one after its initializer finishes.
+Variable names start with an ASCII letter or underscore and may continue with
+ASCII letters, digits, or underscores, immediately after `$`. A later binding
+of the same name shadows the earlier one after its initializer finishes.
 
 ```bash
 $ python -m rumblet run --expr 'let $x := (1,2) return $x'
@@ -424,8 +423,8 @@ $ python -m rumblet run --file examples/slice18/nested-for-input.rq
 Per §§5 and 14, a call takes zero or more comma-separated single expressions.
 Wrap a comma expression in parentheses to pass its result as one argument.
 Function names use the same ASCII identifier spelling as variables, without
-the dollar sign. The engine resolves names before evaluation, including in
-unselected conditional branches.
+the dollar sign. The JSON file loader is named `json_file`. The engine resolves
+names before evaluation, including in unselected conditional branches.
 
 Arguments are evaluated from left to right, preserving the order and
 cardinality of each sequence. Each built-in takes exactly one argument.
@@ -465,7 +464,7 @@ $ python -m rumblet run --expr 'count(1, 2)'
 
 ## Slice 20: load JSON data from a file
 
-`json-file(path)` takes one argument that must evaluate to a singleton string.
+`json_file(path)` takes one argument that must evaluate to a singleton string.
 Relative paths resolve from the process's working directory. The file must
 contain one UTF-8 JSON value, which the function returns as a singleton
 sequence. A top-level JSON array stays one array item.
@@ -476,14 +475,14 @@ Wrong arity raises `StaticError`.
 
 ```bash
 $ printf '%s\n' '[1,2]' > /tmp/rumblet-slice20.json
-$ python -m rumblet run --expr 'json-file("/tmp/rumblet-slice20.json")'
+$ python -m rumblet run --expr 'json_file("/tmp/rumblet-slice20.json")'
 [1,2]
 
-$ python -m rumblet run --expr 'count(json-file("/tmp/rumblet-slice20.json"))'
+$ python -m rumblet run --expr 'count(json_file("/tmp/rumblet-slice20.json"))'
 1
 
-$ python -m rumblet run --expr 'json-file(())'
-[rumblet] DynamicError: json-file expects a singleton string path
+$ python -m rumblet run --expr 'json_file(())'
+[rumblet] DynamicError: json_file expects a singleton string path
 ```
 
 This example loads a project record with nested objects, an array of members,
@@ -507,7 +506,7 @@ JSON
 $ rumblet_root="$PWD"
 $ (cd "$data_dir" && PYTHONPATH="$rumblet_root" "$rumblet_root/.venv/bin/python" -m rumblet run --expr '
     for $path in "project.json"
-    let $record := json-file($path)
+    let $record := json_file($path)
     where $record instance of object
     return {"source": $path, "record": $record}
   ')

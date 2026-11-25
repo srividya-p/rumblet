@@ -3,10 +3,11 @@
 import json
 import sys
 from collections.abc import Iterator
+from math import copysign
 from typing import TextIO
 
 from rumblet.errors import DynamicError
-from rumblet.values import Value, _require_value
+from rumblet.values import ArrayValue, NumberValue, ObjectValue, Value, _require_value
 
 
 class Sequence:
@@ -51,7 +52,7 @@ def print_sequence(sequence: Sequence, file: TextIO | None = None) -> None:
         return
     try:
         lines = [
-            json.dumps(value.value, ensure_ascii=False, allow_nan=False,
+            json.dumps(_serialized_value(value), ensure_ascii=False, allow_nan=False,
                        sort_keys=True, separators=(",", ":"))
             for value in sequence
         ]
@@ -59,3 +60,16 @@ def print_sequence(sequence: Sequence, file: TextIO | None = None) -> None:
         raise DynamicError("result exceeds JSON serialization limits") from error
     for line in lines:
         print(line, file=file)
+
+
+def _serialized_value(value: Value) -> object:
+    if isinstance(value, NumberValue):
+        number = value.value
+        if number.is_integer() and not (number == 0 and copysign(1, number) < 0):
+            return int(number)
+        return number
+    if isinstance(value, ArrayValue):
+        return [_serialized_value(member) for member in value.elements]
+    if isinstance(value, ObjectValue):
+        return {name: _serialized_value(pair) for name, pair in value.members.items()}
+    return value.value

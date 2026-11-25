@@ -1,5 +1,5 @@
 {
-  "summary": "Resolve static calls before evaluation, pass argument sequences in left-to-right order, and provide count, head, tail, exists, and empty.",
+  "summary": "Resolve static calls before evaluation, use letter-only function names, pass argument sequences in left-to-right order, and provide count, head, tail, exists, and empty.",
   "cases": [
     {
       "expr": "count((1, 2, 2)), count(()), count([1, 2]), count(null)",
@@ -48,6 +48,12 @@
       "exit_code": 2,
       "stdout": "",
       "stderr": "[rumblet] StaticError: unknown function: missing\n"
+    },
+    {
+      "expr": "json-file()",
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": "[rumblet] StaticError: expected a single atomic literal\n"
     },
     {
       "expr": "if (false) then missing(1, 2) else 42",

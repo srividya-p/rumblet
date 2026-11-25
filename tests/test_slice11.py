@@ -10,6 +10,8 @@ from rumblet.__main__ import main
 from rumblet.engine import evaluate
 from rumblet.errors import DynamicError
 from rumblet.runtime import effective_boolean_value
+from rumblet.sequence import Sequence, print_sequence
+from rumblet.values import BooleanValue
 
 CASES = json.loads((Path(__file__).parent / "queries/slice11/cases.json").read_text())["cases"]
 
@@ -30,7 +32,7 @@ class EffectiveBooleanValueTests(unittest.TestCase):
 
     def test_logical_query_cases(self):
         for case in CASES:
-            if "stdout" not in case:
+            if "stdout" not in case or case.get("registered"):
                 continue
             with self.subTest(expression=case["expr"]):
                 stdout, stderr = io.StringIO(), io.StringIO()
@@ -40,3 +42,23 @@ class EffectiveBooleanValueTests(unittest.TestCase):
                     (exit_code, stdout.getvalue(), stderr.getvalue()),
                     (case.get("exit_code", 0), case["stdout"], case.get("stderr", "")),
                 )
+
+    def test_registered_logical_operands_are_eager_and_left_to_right(self):
+        for case in CASES:
+            if not case.get("registered"):
+                continue
+            calls = []
+
+            def function(name, result):
+                def invoke():
+                    calls.append(name)
+                    return Sequence([BooleanValue(result)])
+                return invoke
+
+            functions = {
+                "left": function("left", False),
+                "right": function("right", True),
+            }
+            output = io.StringIO()
+            print_sequence(evaluate(case["expr"], functions=functions), file=output)
+            self.assertEqual((output.getvalue(), calls), (case["stdout"], case["calls"]))

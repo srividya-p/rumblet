@@ -1,5 +1,5 @@
 {
-  "summary": "Compute effective boolean values and evaluate and, or, and not expressions per §10.",
+  "summary": "Compute effective boolean values and evaluate eager, left-to-right and, or, and not expressions per §10.",
   "cases": [
     {"expr": "()", "result": false},
     {"expr": "true", "result": true},
@@ -20,6 +20,7 @@
     {"expr": "[true and true, {\"value\": not(())}]", "stdout": "[true,{\"value\":true}]\n"},
     {"expr": "false and 0", "stdout": "", "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n", "exit_code": 2},
     {"expr": "true or null", "stdout": "", "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n", "exit_code": 2},
+    {"expr": "left() and right(), right() or left()", "registered": true, "stdout": "false\ntrue\n", "calls": ["left", "right", "right", "left"]},
     {"expr": "not(true, false)", "stdout": "", "stderr": "[rumblet] DynamicError: effective boolean value requires an empty sequence or a single boolean\n", "exit_code": 2},
     {"expr": "not true", "stdout": "", "stderr": "[rumblet] StaticError: expected '(' after not\n", "exit_code": 2}
   ]

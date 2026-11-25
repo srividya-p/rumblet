@@ -77,8 +77,6 @@
 <body>
   <h1>Mini Query Language</h1>
 
-  <p><strong>Student Project Draft</strong></p>
-
   <div class="status">
     <p>
       This document defines a small query language over the Mini Data Model.
@@ -117,7 +115,7 @@
     A conforming implementation <span class="rfc2119">must</span> implement
     every expression kind in this specification and
     <span class="rfc2119">must not</span> require any feature excluded in
-    Section 16.
+    Section 17.
   </p>
 
   <h2>3 Data Model</h2>
@@ -145,8 +143,8 @@ ExprSingle    ::= FLWORExpr | IfExpr | OrExpr
 FLWORExpr     ::= InitialClause Clause* WhereClause? "return" ExprSingle
 InitialClause ::= ForClause | LetClause
 Clause        ::= ForClause | LetClause
-ForClause     ::= "for" VarName "in" ExprSingle
-LetClause     ::= "let" VarName ":=" ExprSingle
+ForClause     ::= "for" VarRef "in" ExprSingle
+LetClause     ::= "let" VarRef ":=" ExprSingle
 WhereClause   ::= "where" ExprSingle
 IfExpr        ::= "if" "(" Expr ")" "then" ExprSingle "else" ExprSingle
 OrExpr        ::= AndExpr ("or" AndExpr)*
@@ -160,6 +158,11 @@ PrimaryExpr   ::= Literal | VarRef | ObjectConstructor | ArrayConstructor
                 | FunctionCall | ParenthesizedExpr
 ValueComp     ::= "eq" | "ne" | "lt" | "le" | "gt" | "ge"
 TypeName      ::= "string" | "number" | "boolean" | "null" | "object" | "array"
+Literal       ::= StringLiteral | NumberLiteral | BooleanLiteral | NullLiteral
+BooleanLiteral ::= "true" | "false"
+NullLiteral   ::= "null"
+VarRef        ::= "$" VarName
+FunctionName  ::= VarName
 ObjectConstructor ::= "{" (StringLiteral ":" ExprSingle
                       ("," StringLiteral ":" ExprSingle)*)? "}"
 ArrayConstructor  ::= "[" (ExprSingle ("," ExprSingle)*)? "]"
@@ -170,7 +173,18 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
 
   <p>
     Literal expressions produce one atomic value. The literal kinds are string,
-    number, boolean, and null.
+    number, boolean, and null, as given by the grammar. Boolean literals are
+    spelled <code>true</code> and <code>false</code>; the null literal is
+    spelled <code>null</code>. These spellings are case-sensitive and match
+    JSON.
+  </p>
+
+  <p>
+    String literals use JSON string syntax, including its quoting and escape
+    rules. Number literals use JSON number syntax without a leading sign; unary
+    plus and minus are handled by the unary-expression grammar. A number literal
+    is converted to binary64 as described in the Mini Data Model. A literal
+    whose value is not finite in binary64 is a static error.
   </p>
 
   <table>
@@ -205,26 +219,30 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
   <h3>7.1 Object Constructors</h3>
 
   <p>
-    An object constructor produces one object. Each member name
-    <span class="rfc2119">must</span> be a string. Each member value expression
-    <span class="rfc2119">must</span> produce exactly one value. Duplicate member
+    An object constructor produces one object. Each pair name
+    <span class="rfc2119">must</span> be a string. Each pair value expression
+    <span class="rfc2119">must</span> produce exactly one value. Duplicate pair
     names are a dynamic error.
   </p>
 
   <h3>7.2 Array Constructors</h3>
 
   <p>
-    An array constructor produces one array. Each element expression
+    An array constructor produces one array. Each member expression
     <span class="rfc2119">must</span> produce exactly one value. The order of
-    element expressions is the order of elements in the array.
+    member expressions is the order of members in the array.
   </p>
 
   <h2>8 Variables</h2>
 
   <p>
-    A variable reference returns the sequence bound to that variable. Variables
-    are introduced only by for and let clauses. Referring to an unbound variable
-    is a static error.
+    A variable reference returns the sequence bound to that variable. A
+    A <code>VarName</code> starts with an ASCII uppercase letter, lowercase
+    letter, or underscore. Subsequent characters may be ASCII letters, digits,
+    or underscores. A variable reference is spelled <code>$</code> immediately followed by its
+    <code>VarName</code>; whitespace is not allowed between them. Variables are
+    introduced only by for and let clauses. Referring to an unbound variable is
+    a static error.
   </p>
 
   <h2>9 Arithmetic</h2>
@@ -232,7 +250,18 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
   <p>
     Arithmetic operators are addition, subtraction, multiplication, division,
     and remainder. Each operand <span class="rfc2119">must</span> be a sequence
-    containing exactly one number. The result is one number.
+    containing exactly one number. The result is one number rounded to binary64
+    using round-to-nearest, ties-to-even. Underflow follows IEEE 754. A result
+    that is not finite is a dynamic error.
+  </p>
+
+  <p>
+    Division (<code>div</code>) is true division. Remainder (<code>mod</code>)
+    uses floor division: for operands <code>a</code> and nonzero
+    <code>b</code>, <code>a mod b</code> is <code>a - floor(a / b) * b</code>.
+    The result is rounded to binary64 as described above. A nonzero remainder
+    has the sign of the divisor and a magnitude less than the divisor's
+    magnitude. A zero divisor is a dynamic error.
   </p>
 
   <h2>10 Logic</h2>
@@ -247,6 +276,13 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
     The effective boolean value of an empty sequence is false. The effective
     boolean value of a single boolean is that boolean. All other effective
     boolean values are dynamic errors.
+  </p>
+
+  <p>
+    Logical operands are evaluated from left to right. The operands of
+    <code>and</code> and <code>or</code> are both evaluated and both effective
+    boolean values are checked, even when the left operand alone determines the
+    result. These operators do not short-circuit.
   </p>
 
   <h2>11 Value Comparison</h2>
@@ -288,6 +324,7 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
 
   <p>
     A static function call names a function known during static analysis.
+    A <code>FunctionName</code> uses the same syntax as <code>VarName</code>.
     Arguments are evaluated from left to right and passed as sequences. Calling
     an unknown function is a static error.
   </p>
@@ -306,7 +343,20 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
     evaluates the else expression. Only the selected branch is evaluated.
   </p>
 
-  <h2>16 Excluded Features</h2>
+  <h2>16 Serialization</h2>
+
+  <p>
+    A nonempty result sequence is printed as one serialized value per line, in
+    sequence order. An empty result sequence is printed as <code>()</code>.
+    Each value is serialized as compact JSON, with no insignificant whitespace.
+    Strings and object pair names are quoted and escaped according to JSON
+    string rules. Arrays preserve member order. Pairs in an object are sorted by
+    pair name in ascending Unicode scalar-value order. Numeric spellings
+    <span class="rfc2119">must</span> denote the same binary64 value when read
+    back as a number.
+  </p>
+
+  <h2>17 Excluded Features</h2>
 
   <p>
     This language has no modules, declarations, namespaces, XML nodes, path
@@ -315,7 +365,7 @@ ParenthesizedExpr ::= "(" Expr? ")"</code></pre>
     higher-order functions, maps distinct from objects, lookup operators, order
     by, group by, count, window clauses, quantified expressions, switch,
     typeswitch, cast, castable, treat, try/catch, validation, updates, collation,
-    serialization rules, or schema awareness.
+    or schema awareness.
   </p>
 
   <div class="note">

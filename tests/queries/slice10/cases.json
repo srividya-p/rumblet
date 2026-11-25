@@ -1,5 +1,5 @@
 {
-  "summary": "Evaluate ordered array constructors with singleton elements and nested arrays and objects.",
+  "summary": "Evaluate ordered array constructors with singleton members and nested arrays and objects.",
   "cases": [
     {
       "expr": "[]",
@@ -34,21 +34,21 @@
     {
       "expr": "[()]",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: array element 1 must contain exactly one value\n",
+      "stderr": "[rumblet] DynamicError: array member 1 must contain exactly one value\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },
     {
       "expr": "[1, (2, 3)]",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: array element 2 must contain exactly one value\n",
+      "stderr": "[rumblet] DynamicError: array member 2 must contain exactly one value\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },
     {
       "expr": "{\"items\": [[()]]}",
       "stdout": "",
-      "stderr": "[rumblet] DynamicError: array element 1 must contain exactly one value\n",
+      "stderr": "[rumblet] DynamicError: array member 1 must contain exactly one value\n",
       "exit_code": 2,
       "error_type": "DynamicError"
     },

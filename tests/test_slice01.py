@@ -33,7 +33,8 @@ class AtomicValueTests(unittest.TestCase):
         self.assertEqual(hash(NumberValue(1)), hash(NumberValue(1.0)))
         self.assertEqual(NumberValue(0), NumberValue(-0.0))
         self.assertNotEqual(NumberValue(1), NumberValue(2))
-        self.assertEqual(NumberValue(10**100).value, 10**100)
+        self.assertEqual(NumberValue(10**100).value, float(10**100))
+        self.assertEqual(NumberValue(2**53 + 1).value, float(2**53 + 1))
         self.assertEqual(NumberValue(1.25).value, 1.25)
 
     def test_number_rejects_invalid_content(self):
@@ -43,6 +44,8 @@ class AtomicValueTests(unittest.TestCase):
         for text in ["NaN", "Infinity", "-Infinity"]:
             with self.subTest(text=text), self.assertRaises(ValueError):
                 NumberValue(float(text))
+        with self.assertRaises(ValueError):
+            NumberValue(10**400)
 
     def test_booleans_and_distinct_kinds(self):
         self.assertEqual(BooleanValue(True), BooleanValue(True))
@@ -74,7 +77,7 @@ class AtomicValueTests(unittest.TestCase):
     def test_payloads_round_trip_as_json(self):
         for value, expected in [
             (StringValue("hello"), '"hello"'),
-            (NumberValue(1), "1"),
+            (NumberValue(1), "1.0"),
             (NumberValue(1.25), "1.25"),
             (BooleanValue(True), "true"),
             (BooleanValue(False), "false"),

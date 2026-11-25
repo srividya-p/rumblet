@@ -42,7 +42,7 @@ class ArrayConstructorTests(unittest.TestCase):
         iterator = ArrayIterator((element,))
         iterator.open()
         try:
-            with self.assertRaisesRegex(DynamicError, "array element 1"):
+            with self.assertRaisesRegex(DynamicError, "array member 1"):
                 iterator.next()
             with self.assertRaisesRegex(DynamicError, "iterator is not open"):
                 element.next()
